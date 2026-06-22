@@ -71,3 +71,8 @@ POST /wso/5/line-items => request {
     "size": "30",
     "quantity":20
 } -> route -> Handler -> Repository -> INSERT INTO wso_line_items -> Return WsoLineItem -> Json Response
+
+## Recent progress since last update
+- Created new Git feature branch `feature/line-items` to isolate line-item work from `main`.
+- Committed all backend changes on `feature/line-items` with message: `feat(line-items): implement line-item handlers and init feature branch`.
+- Continued improving business-readable naming for line-item handlers and repository call sites.
