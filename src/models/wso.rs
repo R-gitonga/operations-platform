@@ -32,16 +32,3 @@ pub struct WsoOrder {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CreateWsoLineItemRequest {
-    pub size: String,
-    pub quantity: i32,
-}
-
-#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
-pub struct WsoLineItem {
-    pub id: i32,
-    pub wso_order_id: i32,
-    pub size: String,
-    pub quantity: i32,
-}
