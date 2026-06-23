@@ -5,6 +5,7 @@ mod app_state;
 mod errors;
 mod routes;
 mod repositories;
+mod services;
 
 use axum::{
     routing::get,

@@ -53,6 +53,53 @@ pub async fn find_all(pool: &DbPool) -> Result<Vec<WsoOrder>, sqlx::Error> {
     .await
 }
 
+pub async fn find_all_filtered(
+    pool: &DbPool,
+    search: Option<&str>,
+    status: Option<&str>,
+) -> Result<Vec<WsoOrder>, sqlx::Error> {
+    let search_pattern = search.map(|value| format!("%{}%", value));
+    let mut query = String::from(
+        r#"
+        SELECT
+            id,
+            wso_number,
+            req_number,
+            description,
+            remarks,
+            status,
+            created_at,
+            updated_at
+        FROM wso_orders
+        "#,
+    );
+
+    let mut conditions = Vec::new();
+    if search.is_some() {
+        conditions.push("wso_number ILIKE $1");
+    }
+    if status.is_some() {
+        conditions.push("status = $2");
+    }
+
+    if !conditions.is_empty() {
+        query.push_str("WHERE ");
+        query.push_str(&conditions.join(" AND "));
+    }
+
+    query.push_str(" ORDER BY id DESC");
+
+    let mut builder = sqlx::query_as::<_, WsoOrder>(&query);
+    if let Some(pattern) = search_pattern {
+        builder = builder.bind(pattern);
+    }
+    if let Some(status_value) = status {
+        builder = builder.bind(status_value);
+    }
+
+    builder.fetch_all(pool).await
+}
+
 pub async fn find_by_id(pool: &DbPool, id: i32) -> Result<WsoOrder, sqlx::Error> {
     query_as::<_, WsoOrder>(
         r#"

@@ -1,14 +1,19 @@
 ﻿use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     Json,
 };
-// use serde_json::{json, Value};
+use serde::Deserialize;
 
 use crate::{
     app_state::AppState,
     errors::app_error::AppError,
-    models::wso::{CreateWsoRequest, UpdateWsoRequest, WsoOrder},
+    models::{
+        wso::{CreateWsoRequest, UpdateWsoRequest, WsoOrder},
+        wso_detail::WsoDetail,
+        wso_summary::WsoSummary,
+    },
     repositories::wso,
+    services::wso as wso_service,
 };
 
 pub async fn create_wso(
@@ -19,19 +24,36 @@ pub async fn create_wso(
     Ok(Json(created))
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ListWsoQuery {
+    pub search: Option<String>,
+    pub status: Option<String>,
+}
+
 pub async fn get_wsos(
     State(state): State<AppState>,
+    Query(query): Query<ListWsoQuery>,
 ) -> Result<Json<Vec<WsoOrder>>, AppError> {
-    let wsos = wso::find_all(&state.pool).await?;
+    let wsos = if query.search.is_none() && query.status.is_none() {
+        wso::find_all(&state.pool).await?
+    } else {
+        wso::find_all_filtered(
+            &state.pool,
+            query.search.as_deref(),
+            query.status.as_deref(),
+        )
+        .await?
+    };
+
     Ok(Json(wsos))
 }
 
 pub async fn get_wso(
     State(state): State<AppState>,
     Path(id): Path<i32>,
-) -> Result<Json<WsoOrder>, AppError> {
-    let wso_order = wso::find_by_id(&state.pool, id).await?;
-    Ok(Json(wso_order))
+) -> Result<Json<WsoDetail>, AppError> {
+    let wso_detail = wso_service::get_wso_detail(&state.pool, id).await?;
+    Ok(Json(wso_detail))
 }
 
 pub async fn update_wso(
@@ -67,4 +89,11 @@ pub async fn cancel_wso(
 ) -> Result<Json<WsoOrder>, AppError> {
     let cancelled = wso::cancel(&state.pool, id).await?;
     Ok(Json(cancelled))
+}
+
+pub async fn get_wso_summary(
+    State(state): State<AppState>,
+) -> Result<Json<WsoSummary>, AppError> {
+    let summary = wso_service::get_wso_summary(&state.pool).await?;
+    Ok(Json(summary))
 }

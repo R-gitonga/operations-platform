@@ -72,7 +72,113 @@ POST /wso/5/line-items => request {
     "quantity":20
 } -> route -> Handler -> Repository -> INSERT INTO wso_line_items -> Return WsoLineItem -> Json Response
 
+# Sprint 3: WSO Aggregate
+    returns a business object rather than a database row.
+# Wso Detail:
+    -Which fields belong in the response?
+    -Should we include computed fields such as total_quantity?
+    -Should the endpoint return raw database values or a business-oriented representation?
+
+Every item in WSO should return the size and qty for every item in the wso
+should include a total_qty as well so we dont have to calculate it for every page in frontend
+BACKEND -> CALCULATE ONCE -> RETURN TOTAL QTY used throughtout the frontend.
+Also include line_item_count
+# Model Design
+    This model will not exist in PostgreSQL. 
+    We wont have a table called wso_detail
+    It will be purely an API model
+    Database Models -> Business Models -> API Models
+
+# Repository
+    we wont create a repository either because no table exists
+    instead we'll use what we already have.
+    Handler -> WSO Repository -> Line Item Repositry -> Construct WsoDetail
+
+# Handler Flow
+    GET /wso/{id}/details -> find WSO -> find line items -> calculate total_quantity -> calculate line_item_count -> construct WsoDetail -> return JSON
+    
+    To make the endpoint even better, instead of:
+    GET /wso/{id}/details, we'll use
+    GET /wso/{id},
+    and remove the old "header-only" response.
+
+    Why?
+        From a business perspective, there is no such thing as a WSO without its line itens.
+        They are one aggregate. A react page that opens a WSO almost always wants the entire object.
+        We can keep the list endpoint (GET /wso) lightweight for tables and searches,
+        while making the single-resource endpoint (GET /wso/{id}) rich and complete
+        This design closely follows how real business applications are typically consumed and gives us a strong foundation for adding future computed values such as:
+            total_quantity
+            line_item_count
+            is_cancelled
+            last_updated_by
+            has_pending_changes
+        without requiring additional API calls or frontend calculations.
+
+# New Desingn Principle
+    Repositories should never call repositories.
+    Good
+    Handler -> WSO Repository -> Line Item Repository -> Compose Response
+    Bad
+    WSO Repository - Line Item Repository -> WSO repository -> ...
+# Future Proofing
+    WsoDetail should become our canonical Workshop Order Response.
+    meaning,
+    GET /wso, returns;
+        [
+            {
+                "id":1,
+                "wso_number":"WSO-OO1",
+                "status":"active"
+            }
+        ]
+    light weight list, while 
+    GET /wso/{id}, returns;
+        {
+            "id":1,
+            "wso_number":"WSO-OO1",
+            "status":"active",
+            line_itme_count:3,
+            "total_quantity":47,
+            line_items":[...]
+        }
+    full business object.
+
+
+
+
 ## Recent progress since last update
 - Created new Git feature branch `feature/line-items` to isolate line-item work from `main`.
 - Committed all backend changes on `feature/line-items` with message: `feat(line-items): implement line-item handlers and init feature branch`.
 - Continued improving business-readable naming for line-item handlers and repository call sites.
+- Added `src/services/wso.rs` to build `WsoDetail` from `WsoOrder` and `WsoLineItem` data.
+- Updated `src/handlers/wso.rs` so `GET /wso/{id}` now returns the rich business aggregate `WsoDetail`.
+- Exposed the new service layer in `src/main.rs` with `mod services;`.
+- Kept `WsoDetail` as a pure API response model, not a database table.
+
+# Four questions to ask before every implementation
+    Business problem? Example -> A wso should be created atomically
+    API contract? Example -> POST /wso accepts header _ line items.
+    Data Model? Example -> New request DTO containing nested line items
+    Implemantation plan? Example -> Model -> Repository -> Handler -> Route -> Test -> Docs
+
+# Future Proposed Roadmap.
+Version 0.4
+- Strucutred Logging
+- Config Module
+- Validation
+- Better Error Types
+
+version 0.5
+- Transactional Create WSO
+- Header + Multiple Line Items _ One API Call
+
+Version 0.6
+- Authentication
+- Users
+- Roles
+
+Version 1.0
+- Email Notification
+- Audit Trail
+- react Frontend
