@@ -1,13 +1,13 @@
-﻿use sqlx::{query_as};
+﻿use sqlx::query_as;
 
 use crate::{
     database::DbPool,
-    models::wso::{CreateWsoRequest, WsoOrder},
+    models::wso::WsoOrder,
 };
 
-pub async fn create(
-    pool: &DbPool,
-    payload: &CreateWsoRequest,
+pub async fn create_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    payload: &crate::models::create_complete_wso::CreateCompleteWsoRequest,
 ) -> Result<WsoOrder, sqlx::Error> {
     query_as::<_, WsoOrder>(
         r#"
@@ -29,7 +29,7 @@ pub async fn create(
     .bind(&payload.req_number)
     .bind(&payload.description)
     .bind(&payload.remarks)
-    .fetch_one(pool)
+    .fetch_one(tx.as_mut())
     .await
 }
 

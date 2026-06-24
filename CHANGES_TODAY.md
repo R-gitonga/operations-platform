@@ -155,12 +155,20 @@ Also include line_item_count
 - Updated `src/handlers/wso.rs` so `GET /wso/{id}` now returns the rich business aggregate `WsoDetail`.
 - Exposed the new service layer in `src/main.rs` with `mod services;`.
 - Kept `WsoDetail` as a pure API response model, not a database table.
+- Added a transactional complete WSO create flow so `POST /wso` can create a WSO and its line items in one request.
+
+# Sprint 4: Transactional Create WSO
+- Implemented `POST /wso` to accept `CreateCompleteWsoRequest`, create a WSO and nested line items inside one SQL transaction, and return the full `WsoDetail` response.
+- Added `src/models/create_complete_wso.rs` for the transaction request model.
+- Added `src/services/wso_create.rs` to orchestrate repository calls and commit/rollback the transaction.
+- Extended `src/repositories/wso.rs` with `create_tx` for transactional WSO insertion.
+- Reused `src/repositories/line_item.rs` transactional `create_tx` support for line-item creation.
 
 # Four questions to ask before every implementation
-    Business problem? Example -> A wso should be created atomically
-    API contract? Example -> POST /wso accepts header _ line items.
-    Data Model? Example -> New request DTO containing nested line items
-    Implemantation plan? Example -> Model -> Repository -> Handler -> Route -> Test -> Docs
+    Business problem? A WSO and its line items must be created atomically so the system never stores a partially-created order.
+    API contract? POST /wso accepts a single request body containing WSO header fields and a `line_items` array.
+    Data Model? A new DTO `CreateCompleteWsoRequest` maps header fields plus `Vec<CreateWsoLineItemRequest>` for nested child records.
+    Implementation plan? Model -> Repository transaction support -> Service orchestration -> Handler route wiring -> Docs.
 
 # Future Proposed Roadmap.
 Version 0.4
@@ -182,3 +190,28 @@ Version 1.0
 - Email Notification
 - Audit Trail
 - react Frontend
+
+
+# MVP: Search, Filter, Dashboard
+- Implemented server-side **search by WSO number** on `GET /wso` using the `search` query parameter.
+- Implemented **status filtering** on `GET /wso` using the `status` query parameter.
+- Implemented a **dashboard summary** endpoint `GET /wso/summary` that returns total orders, counts by status, and total line-item quantity.
+
+Files changed/added for these features:
+- `src/repositories/wso.rs` — added `find_all_filtered(search, status)` and query construction for `wso_number ILIKE` and `status`.
+- `src/handlers/wso.rs` — updated `GET /wso` to accept `?search=&status=` and added `get_wso_summary` handler.
+- `src/routes/wso.rs` — added route `/wso/summary` mapped to the new handler.
+- `src/services/wso.rs` — added `get_wso_summary` to compose dashboard data from DB; reused repository functions for list and detail composition.
+- `src/models/wso_summary.rs` — new response model for the dashboard summary.
+- `src/models/mod.rs` — exported the new `wso_summary` model module.
+
+Usage examples:
+- `GET /wso?search=WSO-001` — search by WSO number (substring, case-insensitive).
+- `GET /wso?status=active` — filter orders by status.
+- `GET /wso?search=001&status=active` — combine search and filter.
+- `GET /wso/summary` — retrieve dashboard summary counts.
+
+Notes:
+- `GET /wso` retains its original behavior when no query params are provided (it calls `find_all`).
+- No new database tables were created; `WsoSummary` is a derived API model built from existing tables.
+- `cargo check` was run and the project compiles successfully after these changes.

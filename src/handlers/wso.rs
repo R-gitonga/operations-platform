@@ -8,19 +8,23 @@ use crate::{
     app_state::AppState,
     errors::app_error::AppError,
     models::{
-        wso::{CreateWsoRequest, UpdateWsoRequest, WsoOrder},
+        create_complete_wso::CreateCompleteWsoRequest,
+        wso::{UpdateWsoRequest, WsoOrder},
         wso_detail::WsoDetail,
         wso_summary::WsoSummary,
     },
     repositories::wso,
-    services::wso as wso_service,
+    services::{
+        wso as wso_service,
+        wso_create as wso_create_service,
+    },
 };
 
 pub async fn create_wso(
     State(state): State<AppState>,
-    Json(payload): Json<CreateWsoRequest>,
-) -> Result<Json<WsoOrder>, AppError> {
-    let created = wso::create(&state.pool, &payload).await?;
+    Json(payload): Json<CreateCompleteWsoRequest>,
+) -> Result<Json<WsoDetail>, AppError> {
+    let created = wso_create_service::create_complete_wso(&state.pool, &payload).await?;
     Ok(Json(created))
 }
 

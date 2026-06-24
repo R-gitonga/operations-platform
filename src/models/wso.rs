@@ -2,16 +2,6 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use chrono::{DateTime, Utc};
 
-/// data sent by client when creating a WSO
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CreateWsoRequest {
-    pub wso_number: String,
-    pub req_number: Option<String>,
-    pub description: Option<String>,
-    pub remarks: Option<String>,
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UpdateWsoRequest {
     pub wso_number: Option<String>,

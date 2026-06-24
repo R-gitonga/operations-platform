@@ -125,3 +125,32 @@ pub async fn delete(
     .fetch_one(pool)
     .await
 }
+
+pub async fn create_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    wso_order_id: i32,
+    payload: &CreateWsoLineItemRequest,
+) -> Result<WsoLineItem, sqlx::Error> {
+    query_as::<_, WsoLineItem>(
+    r#"
+        INSERT INTO wso_line_items (
+            wso_order_id,
+            size,
+            quantity
+            )
+        VALUES (
+            $1, $2, $3
+            )
+        RETURNING
+            ID,
+            wso_order_id,
+            size,
+            quantity
+        "#,
+    )
+    .bind(wso_order_id)
+    .bind(&payload.size)
+    .bind(payload.quantity)
+    .fetch_one(tx.as_mut())
+    .await
+}
