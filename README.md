@@ -119,3 +119,89 @@ I should:
     Return Complete Order
 
 
+# REACT FRONTEND
+
+`what does the user want to do?`
+    login(later)
+      ↓
+    Dashboard
+      ↓
+    Recent Wso orders
+      ↓
+    Search
+      ↓
+    Open WSO
+      ↓
+    Update Quantities
+      ↓
+    Cance if necessary
+      ↓
+    Creat new WSO
+
+`MVP Screens` -> Five pages
+    src/
+    pages/
+        dashboard
+        wsolist
+        wsodetail
+        createwso
+        editwso
+` React Architecture`
+    frontend/
+    src/
+        api/
+        components/
+        pages/
+        layouts/
+        hooks/
+        types/
+        services/
+        app.tsx
+        main.tsx
+
+Component Hierarchy
+    App
+    |__ MainLayout
+            |__ Sidebar
+            |__ Header
+            |__ Page
+    `Every page will share the same navigation`
+
+`Styling`
+We'll use a component library
+React + TypeScript + Vite + Tailwind CSS + shadcn/ui
+
+`why?`
+    professional appearance
+    accessible components
+    responsive by default
+    extremely common in modern projects
+
+`API Layer`
+React will be unaware of URLs
+api/
+wso.ts
+lineItem.ts
+dashboard.ts
+
+    `Example`
+    pages/
+    Dashboard
+    ↓
+    api/dashboard.ts
+    ↓
+    GET /wso/summary
+`Git Workflow`
+    Create new branch in GIT `feature/frontendmvp`
+
+`Roadmap to Follow
+    - Create React App
+    - Install Dependencies
+    - Configure Routing
+    - Configure Api Client
+    - Create Layout
+    - Create Navigation
+    - Create Empty Pages
+
+# Frontend Tech Stack
+React + TypeScript + Vite + React Router  + Tailwind CSS + shadcn/ui + TanStack Query + Axios
