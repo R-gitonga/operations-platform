@@ -70,11 +70,23 @@ pub async fn update_wso(
     if let Some(val) = payload.wso_number {
         wso_record.wso_number = val;
     }
+    if let Some(val) = payload.category_id {
+        wso_record.category_id = Some(val);
+    }
+    if let Some(val) = payload.date_signed {
+        wso_record.date_signed = Some(val);
+    }
     if let Some(val) = payload.req_number {
         wso_record.req_number = Some(val);
     }
     if let Some(val) = payload.description {
         wso_record.description = Some(val);
+    }
+    if let Some(val) = payload.design_code {
+        wso_record.design_code = Some(val);
+    }
+    if let Some(val) = payload.fabric_code {
+        wso_record.fabric_code = Some(val);
     }
     if let Some(val) = payload.remarks {
         wso_record.remarks = Some(val);

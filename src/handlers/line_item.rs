@@ -11,7 +11,7 @@ use crate::{
         UpdateWsoLineItemRequest,
         WsoLineItem,
     },
-    repositories::line_item,
+    services::line_item,
 };
 
 pub async fn create_line_item(
@@ -44,16 +44,7 @@ pub async fn update_line_item(
     Path(line_item_id): Path<i32>,
     Json(payload): Json<UpdateWsoLineItemRequest>,
 ) -> Result<Json<WsoLineItem>, AppError> {
-    let mut item = line_item::find_by_id(&state.pool, line_item_id).await?;
-
-    if let Some(size) = payload.size {
-        item.size = size;
-    }
-    if let Some(quantity) = payload.quantity {
-        item.quantity = quantity;
-    }
-
-    let updated = line_item::update(&state.pool, &item).await?;
+    let updated = line_item::update(&state.pool, line_item_id, payload).await?;
     Ok(Json(updated))
 }
 

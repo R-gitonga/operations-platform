@@ -19,21 +19,31 @@ pub async fn create(
         INSERT INTO wso_line_items (
             wso_order_id,
             size,
-            quantity
+            qty_raised,
+            qty_received,
+            received_date,
+            status
             )
         VALUES (
-            $1, $2, $3
+            $1, $2, $3, COALESCE($4, 0), $5, COALESCE($6, 'Raised')
             )
         RETURNING
-            ID,
+            id,
             wso_order_id,
             size,
-            quantity
+            qty_raised,
+            qty_received,
+            received_date,
+            status,
+            qty_raised - qty_received AS balance
         "#,
     )
     .bind(wso_order_id)
     .bind(&payload.size)
-    .bind(payload.quantity)
+    .bind(payload.qty_raised)
+    .bind(payload.qty_received)
+    .bind(payload.received_date)
+    .bind(&payload.status)
     .fetch_one(pool)
     .await
 }
@@ -49,7 +59,11 @@ pub async fn find_by_wso(
             id,
             wso_order_id,
             size,
-            quantity
+            qty_raised,
+            qty_received,
+            received_date,
+            status,
+            qty_raised - qty_received AS balance
         FROM 
             wso_line_items
         WHERE wso_order_id = $1
@@ -71,7 +85,11 @@ pub async fn find_by_id(
             id,
             wso_order_id,
             size,
-            quantity
+            qty_raised,
+            qty_received,
+            received_date,
+            status,
+            qty_raised - qty_received AS balance
         FROM wso_line_items
         WHERE id = $1
         "#,
@@ -90,17 +108,27 @@ pub async fn update(
         UPDATE wso_line_items
         SET
             size = $1,
-            quantity = $2
-        WHERE id = $3
+            qty_raised = $2,
+            qty_received = $3,
+            received_date = $4,
+            status = $5
+        WHERE id = $6
         RETURNING
             id,
             wso_order_id,
             size,
-            quantity
+            qty_raised,
+            qty_received,
+            received_date,
+            status,
+            qty_raised - qty_received AS balance
         "#,
     )
     .bind(&item.size)
-    .bind(item.quantity)
+    .bind(item.qty_raised)
+    .bind(item.qty_received)
+    .bind(item.received_date)
+    .bind(&item.status)
     .bind(item.id)
     .fetch_one(pool)
     .await
@@ -118,7 +146,11 @@ pub async fn delete(
             id,
             wso_order_id,
             size,
-            quantity
+            qty_raised,
+            qty_received,
+            received_date,
+            status,
+            qty_raised - qty_received AS balance
         "#,
     )
     .bind(line_item_id)
@@ -136,21 +168,31 @@ pub async fn create_tx(
         INSERT INTO wso_line_items (
             wso_order_id,
             size,
-            quantity
+            qty_raised,
+            qty_received,
+            received_date,
+            status
             )
         VALUES (
-            $1, $2, $3
+            $1, $2, $3, COALESCE($4, 0), $5, COALESCE($6, 'Raised')
             )
         RETURNING
-            ID,
+            id,
             wso_order_id,
             size,
-            quantity
+            qty_raised,
+            qty_received,
+            received_date,
+            status,
+            qty_raised - qty_received AS balance
         "#,
     )
     .bind(wso_order_id)
     .bind(&payload.size)
-    .bind(payload.quantity)
+    .bind(payload.qty_raised)
+    .bind(payload.qty_received)
+    .bind(payload.received_date)
+    .bind(&payload.status)
     .fetch_one(tx.as_mut())
     .await
 }

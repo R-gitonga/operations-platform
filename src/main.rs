@@ -24,6 +24,7 @@ use std::env;
 use routes::{
     wso::routes as wso_routes,
     line_item::routes as line_item_routes,
+    category::routes as category_routes,
 };
 
 //response returned from home route
@@ -70,6 +71,7 @@ async fn main() {
     let app = Router::new()
         .merge(wso_routes())
         .merge(line_item_routes())
+        .merge(category_routes())
         .route("/", get(root))
         .with_state(state);
     //start listening
