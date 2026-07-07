@@ -2,7 +2,10 @@ mod database;
 mod models;
 mod handlers;
 mod app_state;
+mod errors;
 mod routes;
+mod repositories;
+mod services;
 
 use axum::{
     routing::get,
@@ -18,7 +21,11 @@ use std::env;
 // use database::DbPool;
 // use handlers::wso::{create_wso, get_wsos, get_wso, update_wso, cancel_wso};
 // use axum::routing::post;
-use routes::wso::routes as wso_routes;
+use routes::{
+    wso::routes as wso_routes,
+    line_item::routes as line_item_routes,
+    category::routes as category_routes,
+};
 
 //response returned from home route
 
@@ -63,6 +70,8 @@ async fn main() {
     //creating route
     let app = Router::new()
         .merge(wso_routes())
+        .merge(line_item_routes())
+        .merge(category_routes())
         .route("/", get(root))
         .with_state(state);
     //start listening
