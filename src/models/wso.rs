@@ -12,6 +12,8 @@ pub struct UpdateWsoRequest {
     pub design_code: Option<String>,
     pub fabric_code: Option<String>,
     pub remarks: Option<String>,
+    pub attachment_name: Option<String>,
+    pub attachment_path: Option<String>,
     pub status: Option<String>,
 }
 #[derive(Debug, Serialize, Deserialize, FromRow)]
@@ -25,6 +27,8 @@ pub struct WsoOrder {
     pub design_code: Option<String>,
     pub fabric_code: Option<String>,
     pub remarks: Option<String>,
+    pub attachment_name: Option<String>,
+    pub attachment_path: Option<String>,
     pub status: String,
     pub created_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,

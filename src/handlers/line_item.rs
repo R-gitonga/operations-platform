@@ -9,6 +9,7 @@ use crate::{
     models::line_item::{
         CreateWsoLineItemRequest,
         UpdateWsoLineItemRequest,
+        ReceiveLineItemRequest,
         WsoLineItem,
     },
     services::line_item,
@@ -46,6 +47,22 @@ pub async fn update_line_item(
 ) -> Result<Json<WsoLineItem>, AppError> {
     let updated = line_item::update(&state.pool, line_item_id, payload).await?;
     Ok(Json(updated))
+}
+
+pub async fn receive_line_item(
+    State(state): State<AppState>,
+    Path(id): Path<i32>,
+    Json(payload): Json<ReceiveLineItemRequest>,
+) -> Result<Json<WsoLineItem>, AppError> {
+
+    let item = line_item::receive(
+        &state.pool,
+        id,
+        payload,
+    )
+    .await?;
+
+    Ok(Json(item))
 }
 
 pub async fn delete_line_item(

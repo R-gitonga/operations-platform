@@ -24,6 +24,8 @@ pub async fn create_tx(
             design_code,
             fabric_code,
             remarks,
+            attachment_name,
+            attachment_path,
             status,
             created_at,
             updated_at
@@ -54,6 +56,8 @@ pub async fn find_all(pool: &DbPool) -> Result<Vec<WsoOrder>, sqlx::Error> {
             design_code,
             fabric_code,
             remarks,
+            attachment_name,
+            attachment_path,
             status,
             created_at,
             updated_at
@@ -112,6 +116,8 @@ pub async fn find_by_id(pool: &DbPool, id: i32) -> Result<WsoOrder, sqlx::Error>
             design_code,
             fabric_code,
             remarks,
+            attachment_name,
+            attachment_path,
             status,
             created_at,
             updated_at
@@ -137,9 +143,11 @@ pub async fn update(pool: &DbPool, wso: &WsoOrder) -> Result<WsoOrder, sqlx::Err
             design_code = $6,
             fabric_code = $7,
             remarks = $8,
-            status = $9,
+            attachment_name = $9,
+            attachment_path = $10,
+            status = $11,
             updated_at = NOW()
-        WHERE id = $10
+        WHERE id = $12
         RETURNING
             id,
             category_id,
@@ -150,6 +158,8 @@ pub async fn update(pool: &DbPool, wso: &WsoOrder) -> Result<WsoOrder, sqlx::Err
             design_code,
             fabric_code,
             remarks,
+            attachment_name,
+            attachment_path,
             status,
             created_at,
             updated_at
@@ -163,6 +173,8 @@ pub async fn update(pool: &DbPool, wso: &WsoOrder) -> Result<WsoOrder, sqlx::Err
     .bind(&wso.design_code)
     .bind(&wso.fabric_code)
     .bind(&wso.remarks)
+    .bind(&wso.attachment_name)
+    .bind(wso.attachment_path.clone())
     .bind(&wso.status)
     .bind(wso.id)
     .fetch_one(pool)
@@ -187,6 +199,8 @@ pub async fn cancel(pool: &DbPool, id: i32) -> Result<WsoOrder, sqlx::Error> {
             design_code,
             fabric_code,
             remarks,
+            attachment_name,
+            attachment_path,
             status,
             created_at,
             updated_at

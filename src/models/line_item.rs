@@ -22,6 +22,11 @@ pub struct UpdateWsoLineItemRequest {
     pub status: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ReceiveLineItemRequest {
+    pub quantity: i32,
+}
+
 #[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct WsoLineItem {
     pub id: i32,

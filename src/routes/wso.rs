@@ -9,10 +9,10 @@ use crate::{
         cancel_wso,
         create_wso,
         get_wso,
-        get_wso_summary,
         get_wsos,
         get_wso_summary,
         update_wso,
+        upload_attachment,
     },
 };
 
@@ -24,13 +24,13 @@ pub fn routes() -> Router<AppState> {
                 .get(get_wsos),
         )
         .route(
-            "/wso/summary",
-            get(get_wso_summary),
-        )
-        .route(
             "/wso/{id}",
             get(get_wso)
                 .put(update_wso),
+        )
+        .route(
+            "/wso/{id}/attachment",
+            post(upload_attachment),
         )
         .route(
             "/wso/summary",

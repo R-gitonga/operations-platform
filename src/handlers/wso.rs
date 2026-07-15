@@ -1,8 +1,11 @@
 ﻿use axum::{
-    extract::{Path, Query, State},
+    extract::{Multipart, Path, Query, State},
     Json,
 };
 use serde::Deserialize;
+
+// use std::path::Path;
+use tokio::fs;
 
 use crate::{
     app_state::AppState,
@@ -103,8 +106,39 @@ pub async fn cancel_wso(
     State(state): State<AppState>,
     Path(id): Path<i32>,
 ) -> Result<Json<WsoOrder>, AppError> {
-    let cancelled = wso::cancel(&state.pool, id).await?;
+    let cancelled = wso_service::cancel(&state.pool, id).await?;
     Ok(Json(cancelled))
+}
+
+pub async fn upload_attachment(
+    State(state): State<AppState>,
+    Path(id): Path<i32>,
+    mut multipart: Multipart,
+) -> Result<Json<WsoOrder>, AppError> {
+
+    let mut wso = wso::find_by_id(&state.pool, id).await?;
+
+    while let Some(field) = multipart.next_field().await? {
+        let file_name = field
+            .file_name()
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "attachment".to_string());
+
+        let data = field.bytes().await?;
+
+        fs::create_dir_all("uploads").await?;
+
+        let saved_path = format!("uploads/{}_{}", id, file_name);
+
+        fs::write(&saved_path, data).await?;
+
+        wso.attachment_name = Some(file_name);
+        wso.attachment_path = Some(saved_path);
+    }
+
+    let updated = wso::update(&state.pool, &wso).await?;
+
+    Ok(Json(updated))
 }
 
 pub async fn get_wso_summary(

@@ -18,20 +18,14 @@ use dotenvy::dotenv;
 use serde::Serialize;
 use sqlx::postgres::PgPoolOptions;
 use std::env;
-// use database::DbPool;
-// use handlers::wso::{create_wso, get_wsos, get_wso, update_wso, cancel_wso};
-// use axum::routing::post;
+
 use routes::{
     wso::routes as wso_routes,
     line_item::routes as line_item_routes,
     category::routes as category_routes,
 };
 
-//response returned from home route
-
-// to read later:
-// -structs
-// -derive macros
+use tower_http::services::ServeDir;
 
 #[derive(Serialize)]
 struct ApiResponse {
@@ -72,6 +66,10 @@ async fn main() {
         .merge(wso_routes())
         .merge(line_item_routes())
         .merge(category_routes())
+        .nest_service(
+            "/uploads",
+            ServeDir::new("uploads"),
+        )
         .route("/", get(root))
         .with_state(state);
     //start listening

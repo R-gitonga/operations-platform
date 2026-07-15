@@ -22,3 +22,12 @@ This organization keeps each concern in its own area and avoids mixing SQL, HTTP
 - **Layered feature modules**: grouping by feature rather than technical role (e.g. `wso/`, `line_item/`). This can work well for large systems, but this backend is still small enough that a role-based separation is easier to follow.
 - **Monolithic single file**: keeping all logic in one place. This is easy at first but quickly becomes unmanageable as the application grows.
 - **Service-only organization**: placing all business logic in service modules and leaving handlers very thin. That is a valid approach, but this project already has a clean separation between handlers, repositories, and models and does not require another indirection yet.
+
+## Phase 2
+
+`attachment uploads`
+`image preview`
+`pdf preview`
+`Download attachments`
+`drag and drop uploads`
+`Using OCR to extract information from the pdf?`

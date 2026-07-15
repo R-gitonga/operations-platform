@@ -1,8 +1,10 @@
+use chrono::Utc;
 use crate::{
     database::DbPool,
     errors::app_error::AppError,
     models::line_item::{
         CreateWsoLineItemRequest,
+        ReceiveLineItemRequest,
         UpdateWsoLineItemRequest,
         WsoLineItem,
     },
@@ -115,6 +117,47 @@ pub async fn update(
 
     validate_quantities(item.qty_raised, item.qty_received)?;
     Ok(line_item::update(pool, &item).await?)
+}
+
+pub async fn receive(
+    pool: &DbPool,
+    line_item_id: i32,payload: ReceiveLineItemRequest,
+) -> Result<WsoLineItem, AppError> {
+    if payload.quantity <= 0 {
+        return Err(AppError::BadRequest(
+            "Quantity must be greater than zero.".to_string(),
+        ));
+    }
+
+    let mut item = line_item::find_by_id(pool, line_item_id).await?;
+
+    let new_received = item.qty_received + payload.quantity;
+
+    if new_received > item.qty_raised {
+        return Err(AppError::BadRequest(
+            "Received quantity exceeds quantity raised.".to_string(),
+        ));
+    }
+
+    item.qty_received = new_received;
+
+    item.balance = item.qty_raised - item.qty_received;
+
+    item.received_date = Some(
+        Utc::now().date_naive()
+    );
+
+    item.status = if item.qty_received == 0 {
+        "Raised".to_string()
+    } else if item.balance == 0 {
+        "Completed".to_string()
+    } else {
+        "Partially Received".to_string()
+    };
+
+    Ok(
+        line_item::update(pool, &item).await?
+    )
 }
 
 pub async fn delete(

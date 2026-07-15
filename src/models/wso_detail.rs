@@ -13,6 +13,8 @@ pub struct WsoDetail {
     pub design_code: Option<String>,
     pub fabric_code: Option<String>,
     pub remarks: Option<String>,
+    pub attachment_name: Option<String>,
+    pub attachment_path: Option<String>,
     pub status: String,
 
     //Business statistics

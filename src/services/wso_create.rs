@@ -45,6 +45,8 @@ pub async fn create_complete_wso(
         design_code: created_wso.design_code,
         fabric_code: created_wso.fabric_code,
         remarks: created_wso.remarks,
+        attachment_name: created_wso.attachment_name,
+        attachment_path: created_wso.attachment_path,
         status: created_wso.status,
         line_item_count,
         total_qty_raised,
