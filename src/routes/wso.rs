@@ -13,6 +13,7 @@ use crate::{
         get_wso_summary,
         update_wso,
         upload_attachment,
+        reactivate_wso,
     },
 };
 
@@ -39,5 +40,9 @@ pub fn routes() -> Router<AppState> {
         .route(
             "/wso/{id}/cancel",
             patch(cancel_wso),
+        )
+        .route(
+            "/wso/{id}/reactivate",
+            post(reactivate_wso),
         )
 }

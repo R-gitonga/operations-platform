@@ -210,3 +210,37 @@ pub async fn cancel(pool: &DbPool, id: i32) -> Result<WsoOrder, sqlx::Error> {
     .fetch_one(pool)
     .await
 }
+
+pub async fn reactivate(
+    pool: &DbPool,
+    id: i32,
+) -> Result<WsoOrder, sqlx::Error> {
+
+    query_as::<_, WsoOrder>(
+        r#"
+        UPDATE wso_orders
+        SET
+            status = 'active',
+            updated_at = NOW()
+        WHERE id = $1
+        RETURNING
+            id,
+            category_id,
+            date_signed,
+            wso_number,
+            req_number,
+            description,
+            design_code,
+            fabric_code,
+            remarks,
+            attachment_name,
+            attachment_path,
+            status,
+            created_at,
+            updated_at
+        "#,
+    )
+    .bind(id)
+    .fetch_one(pool)
+    .await
+}

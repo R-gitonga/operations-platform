@@ -110,6 +110,20 @@ pub async fn cancel_wso(
     Ok(Json(cancelled))
 }
 
+pub async fn reactivate_wso(
+    Path(id): Path<i32>,
+    State(state): State<AppState>,
+) -> Result<Json<WsoOrder>,AppError> {
+
+    let order = crate::services::wso::reactivate(
+        &state.pool,
+        id,
+    )
+    .await?;
+
+    Ok(Json(order))
+}
+
 pub async fn upload_attachment(
     State(state): State<AppState>,
     Path(id): Path<i32>,

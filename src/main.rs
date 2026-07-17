@@ -23,6 +23,7 @@ use routes::{
     wso::routes as wso_routes,
     line_item::routes as line_item_routes,
     category::routes as category_routes,
+    dashboard::routes as dashboard_routes
 };
 
 use tower_http::services::ServeDir;
@@ -66,6 +67,7 @@ async fn main() {
         .merge(wso_routes())
         .merge(line_item_routes())
         .merge(category_routes())
+        .merge(dashboard_routes())
         .nest_service(
             "/uploads",
             ServeDir::new("uploads"),
