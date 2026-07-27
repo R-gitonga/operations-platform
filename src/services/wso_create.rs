@@ -36,24 +36,36 @@ pub async fn create_complete_wso(
     let line_item_count = created_line_items.len();
 
     let wso_detail = WsoDetail {
-        id: created_wso.id,
-        category_id: created_wso.category_id,
-        date_signed: created_wso.date_signed,
-        wso_number: created_wso.wso_number,
-        req_number: created_wso.req_number,
-        description: created_wso.description,
-        design_code: created_wso.design_code,
-        fabric_code: created_wso.fabric_code,
-        remarks: created_wso.remarks,
-        attachment_name: created_wso.attachment_name,
-        attachment_path: created_wso.attachment_path,
-        status: created_wso.status,
-        line_item_count,
-        total_qty_raised,
-        total_qty_received,
-        total_balance,
-        line_items: created_line_items,
-    };
+    id: created_wso.id,
+    category_id: created_wso.category_id,
+    date_signed: created_wso.date_signed,
+    wso_number: created_wso.wso_number,
+    req_number: created_wso.req_number,
+    description: created_wso.description,
+    design_code: created_wso.design_code,
+    fabric_code: created_wso.fabric_code,
+    remarks: created_wso.remarks,
+    attachment_name: created_wso.attachment_name,
+    attachment_path: created_wso.attachment_path,
+    status: created_wso.status,
+
+    // Production stage
+    current_stage_id: None,
+    current_stage_name: None,
+    current_stage_color: None,
+    current_stage_changed_by: None,
+    current_stage_changed_at: None,
+    current_stage_notes: None,
+
+    // Statistics
+    line_item_count,
+    total_qty_raised,
+    total_qty_received,
+    total_balance,
+
+    // Children
+    line_items: created_line_items,
+};
 
     tx.commit().await?;
     Ok(wso_detail)

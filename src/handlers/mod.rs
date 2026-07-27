@@ -2,3 +2,7 @@ pub mod wso;
 pub mod line_item;
 pub mod category;
 pub mod dashboard;
+pub mod settings;
+pub mod notification_recipient;
+pub mod debug;
+pub mod production_stage;

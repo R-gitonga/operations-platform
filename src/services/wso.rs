@@ -35,7 +35,7 @@ pub async fn get_wso_detail(
     let total_balance =
         line_items.iter().map(|x| x.balance).sum();
 
-    Ok(WsoDetail {
+        Ok(WsoDetail {
         id: wso_order.id,
         category_id: wso_order.category_id,
         date_signed: wso_order.date_signed,
@@ -48,6 +48,13 @@ pub async fn get_wso_detail(
         attachment_name: wso_order.attachment_name,
         attachment_path: wso_order.attachment_path,
         status: wso_order.status,
+
+        current_stage_id: wso_order.current_stage_id,
+        current_stage_name: wso_order.current_stage_name,
+        current_stage_color: wso_order.current_stage_color,
+        current_stage_changed_by: wso_order.current_stage_changed_by,
+        current_stage_changed_at: wso_order.current_stage_changed_at,
+        current_stage_notes: wso_order.current_stage_notes,
 
         line_item_count: line_items.len(),
         total_qty_raised,

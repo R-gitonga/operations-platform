@@ -1,3 +1,10 @@
 pub mod wso;
 pub mod line_item;
 pub mod category;
+pub mod notification_event;
+pub mod notification_setting;
+pub mod notification_recipient;
+pub mod notification_log;
+pub mod notification_job;
+pub mod production_stage;
+pub mod wso_stage_history;
