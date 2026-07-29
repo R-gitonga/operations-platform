@@ -6,7 +6,8 @@ use sqlx::FromRow;
 pub struct WsoStageHistory {
     pub id: i32,
 
-    pub wso_id: i32,
+
+    pub wso_item_id: i32,
 
     pub production_stage_id: i32,
 

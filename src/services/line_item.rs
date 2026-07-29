@@ -12,6 +12,7 @@ use crate::{
     repositories::{
         line_item,
         wso,
+        wso_item,
     },
     services::{
         wso as wso_service,
@@ -84,20 +85,29 @@ pub fn validate_create_payload(
 
 pub async fn create(
     pool: &DbPool,
-    wso_order_id: i32,
+    wso_item_id: i32,
     payload: &CreateWsoLineItemRequest,
 ) -> Result<WsoLineItem, AppError> {
     validate_create_payload(payload)?;
 
-    let order = wso::find_by_id(pool, wso_order_id).await?;
+    let production_item =
+        wso_item::find_by_id(pool, wso_item_id).await?;
+
+    let order =
+        wso::find_by_id(
+            pool,
+            production_item.wso_order_id,
+        )
+        .await?;
+
     wso_rules::ensure_can_edit(&order)?;
 
     let created =
-        line_item::create(pool, wso_order_id, payload).await?;
+        line_item::create(pool, wso_item_id, payload).await?;
 
     wso_service::refresh_wso_status(
         pool,
-        wso_order_id,
+        production_item.wso_order_id,
     )
     .await?;
 
@@ -106,9 +116,9 @@ pub async fn create(
 
 pub async fn find_by_wso(
     pool: &DbPool,
-    wso_order_id: i32,
+    wso_item_id: i32,
 ) -> Result<Vec<WsoLineItem>, AppError> {
-    Ok(line_item::find_by_wso(pool, wso_order_id).await?)
+    Ok(line_item::find_by_item(pool, wso_item_id).await?)
 }
 
 pub async fn find_by_id(
@@ -127,8 +137,15 @@ pub async fn update(
     let mut item =
         line_item::find_by_id(pool, line_item_id).await?;
 
-    let order =
-        wso::find_by_id(pool, item.wso_order_id).await?;
+    let production_item =
+        wso_item::find_by_id(pool, item.wso_item_id).await?;
+    
+    let order = 
+        wso::find_by_id(
+            pool,
+            production_item.wso_order_id,
+        )
+        .await?;
 
     wso_rules::ensure_can_edit(&order)?;
 
@@ -166,7 +183,7 @@ pub async fn update(
 
     wso_service::refresh_wso_status(
         pool,
-        updated.wso_order_id,
+        production_item.wso_order_id,
     )
     .await?;
 
@@ -188,8 +205,15 @@ pub async fn receive(
     let mut item =
         line_item::find_by_id(pool, line_item_id).await?;
 
+    let production_item = 
+        wso_item::find_by_id(pool, item.wso_item_id).await?;
+
     let order =
-        wso::find_by_id(pool, item.wso_order_id).await?;
+        wso::find_by_id(
+            pool,
+            production_item.wso_order_id,
+        )
+        .await?;
 
     wso_rules::ensure_can_receive(&order)?;
 
@@ -225,7 +249,7 @@ pub async fn receive(
 
     wso_service::refresh_wso_status(
         pool,
-        updated.wso_order_id,
+        production_item.wso_order_id,
     )
     .await?;
 
@@ -240,8 +264,15 @@ pub async fn delete(
     let item =
         line_item::find_by_id(pool, line_item_id).await?;
 
-    let order =
-        wso::find_by_id(pool, item.wso_order_id).await?;
+    let production_item =
+        wso_item::find_by_id(pool, item.wso_item_id).await?;
+
+    let order = 
+        wso::find_by_id(
+            pool,
+            production_item.wso_order_id,
+        )
+        .await?;
 
     wso_rules::ensure_can_edit(&order)?;
 
@@ -250,7 +281,7 @@ pub async fn delete(
 
     wso_service::refresh_wso_status(
         pool,
-        item.wso_order_id,
+        production_item.wso_order_id,
     )
     .await?;
 

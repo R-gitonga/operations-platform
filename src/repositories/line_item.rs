@@ -10,14 +10,14 @@ use crate::{
 
 pub async fn create(
     pool: &DbPool,
-    wso_order_id: i32,
+    wso_item_id: i32,
     payload: &CreateWsoLineItemRequest,
 ) -> Result<WsoLineItem, sqlx::Error> {
 
     query_as::<_, WsoLineItem>(
     r#"
         INSERT INTO wso_line_items (
-            wso_order_id,
+            wso_item_id,
             size,
             qty_raised,
             qty_received,
@@ -30,6 +30,7 @@ pub async fn create(
         RETURNING
             id,
             wso_order_id,
+            wso_item_id,
             size,
             qty_raised,
             qty_received,
@@ -38,7 +39,7 @@ pub async fn create(
             qty_raised - qty_received AS balance
         "#,
     )
-    .bind(wso_order_id)
+    .bind(wso_item_id)
     .bind(&payload.size)
     .bind(payload.qty_raised)
     .bind(payload.qty_received)
@@ -48,9 +49,9 @@ pub async fn create(
     .await
 }
 
-pub async fn find_by_wso(
+pub async fn find_by_item(
     pool: &DbPool,
-    wso_order_id: i32,
+    wso_item_id: i32,
 ) -> Result<Vec<WsoLineItem>, sqlx::Error> {
 
     query_as::<_, WsoLineItem>(
@@ -58,6 +59,7 @@ pub async fn find_by_wso(
         SELECT
             id,
             wso_order_id,
+            wso_item_id,
             size,
             qty_raised,
             qty_received,
@@ -66,11 +68,11 @@ pub async fn find_by_wso(
             qty_raised - qty_received AS balance
         FROM 
             wso_line_items
-        WHERE wso_order_id = $1
+        WHERE wso_item_id = $1
         ORDER BY id ASC
         "#,
     )
-    .bind(wso_order_id)
+    .bind(wso_item_id)
     .fetch_all(pool)
     .await
 }
@@ -84,6 +86,7 @@ pub async fn find_by_id(
         SELECT
             id,
             wso_order_id,
+            wso_item_id,
             size,
             qty_raised,
             qty_received,
@@ -116,6 +119,7 @@ pub async fn update(
         RETURNING
             id,
             wso_order_id,
+            wso_item_id,
             size,
             qty_raised,
             qty_received,
@@ -145,6 +149,7 @@ pub async fn delete(
         RETURNING
             id,
             wso_order_id,
+            wso_item_id,
             size,
             qty_raised,
             qty_received,
@@ -161,24 +166,35 @@ pub async fn delete(
 pub async fn create_tx(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     wso_order_id: i32,
+    wso_item_id: i32,
     payload: &CreateWsoLineItemRequest,
 ) -> Result<WsoLineItem, sqlx::Error> {
     query_as::<_, WsoLineItem>(
     r#"
-        INSERT INTO wso_line_items (
+        INSERT INTO wso_line_items
+        (
             wso_order_id,
+            wso_item_id,
             size,
             qty_raised,
             qty_received,
             received_date,
             status
-            )
-        VALUES (
-            $1, $2, $3, COALESCE($4, 0), $5, COALESCE($6, 'Raised')
-            )
+        )
+        VALUES
+        (
+            $1,
+            $2,
+            $3,
+            $4,
+            COALESCE($5,0),
+            $6,
+            COALESCE($7,'Raised')
+        )
         RETURNING
             id,
             wso_order_id,
+            wso_item_id,
             size,
             qty_raised,
             qty_received,
@@ -188,6 +204,7 @@ pub async fn create_tx(
         "#,
     )
     .bind(wso_order_id)
+    .bind(wso_item_id)
     .bind(&payload.size)
     .bind(payload.qty_raised)
     .bind(payload.qty_received)

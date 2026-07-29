@@ -3,54 +3,56 @@ use sqlx::Row;
 use crate::{
     database::DbPool,
     models::{
-        change_wso_stage::ChangeWsoStageRequest,
+        change_production_item_stage::ChangeProductionItemStageRequest,
         wso_stage_history::WsoStageHistory,
     },
 };
 
 pub async fn create(
     pool: &DbPool,
-    wso_id: i32,
-    request: ChangeWsoStageRequest,
+    wso_item_id: i32,
+    request: ChangeProductionItemStageRequest,
 ) -> Result<(), sqlx::Error> {
 
     let mut tx = pool.begin().await?;
 
+    //---------------------------------------------------------
+    // Update the item's current stage
+    //---------------------------------------------------------
+
     sqlx::query(
         r#"
-        UPDATE wso_orders
-
+        UPDATE wso_items
         SET
-
-            current_stage_id = $1,
-
-            updated_at = NOW()
-
+            current_stage_id = $1
         WHERE id = $2
-        "#
+        "#,
     )
     .bind(request.production_stage_id)
-    .bind(wso_id)
+    .bind(wso_item_id)
     .execute(&mut *tx)
     .await?;
 
+    //---------------------------------------------------------
+    // Record history
+    //---------------------------------------------------------
+
     sqlx::query(
         r#"
-        INSERT INTO wso_stage_history (
-
-            wso_id,
-
+        INSERT INTO wso_stage_history
+        (
+            wso_item_id,
             production_stage_id,
-
             notes,
-
             changed_by
-
         )
-        VALUES ($1,$2,$3,$4)
-        "#
+        VALUES
+        (
+            $1,$2,$3,$4
+        )
+        "#,
     )
-    .bind(wso_id)
+    .bind(wso_item_id)
     .bind(request.production_stage_id)
     .bind(request.notes)
     .bind(request.changed_by)
@@ -62,41 +64,29 @@ pub async fn create(
     Ok(())
 }
 
-pub async fn find_by_wso(
+pub async fn find_by_wso_item(
     pool: &DbPool,
-    wso_id: i32,
+    wso_item_id: i32,
 ) -> Result<Vec<WsoStageHistory>, sqlx::Error> {
 
     let rows = sqlx::query(
         r#"
         SELECT
-
             h.id,
-
-            h.wso_id,
-
+            h.wso_item_id,
             h.production_stage_id,
-
             s.display_name AS stage_name,
-
             h.notes,
-
             h.changed_by,
-
             h.changed_at
-
         FROM wso_stage_history h
-
         JOIN production_stages s
-
             ON s.id = h.production_stage_id
-
-        WHERE h.wso_id = $1
-
+        WHERE h.wso_item_id = $1
         ORDER BY h.changed_at DESC
-        "#
+        "#,
     )
-    .bind(wso_id)
+    .bind(wso_item_id)
     .fetch_all(pool)
     .await?;
 
@@ -106,7 +96,7 @@ pub async fn find_by_wso(
 
             id: row.get("id"),
 
-            wso_id: row.get("wso_id"),
+            wso_item_id: row.get("wso_item_id"),
 
             production_stage_id: row.get("production_stage_id"),
 

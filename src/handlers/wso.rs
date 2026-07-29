@@ -3,8 +3,6 @@
     Json,
 };
 use serde::Deserialize;
-
-// use std::path::Path;
 use tokio::fs;
 
 use crate::{
@@ -27,7 +25,9 @@ pub async fn create_wso(
     State(state): State<AppState>,
     Json(payload): Json<CreateCompleteWsoRequest>,
 ) -> Result<Json<WsoDetail>, AppError> {
-    let created = wso_create_service::create_complete_wso(&state.pool, &payload).await?;
+    let created =
+        wso_create_service::create_complete_wso(&state.pool, &payload).await?;
+
     Ok(Json(created))
 }
 
@@ -41,9 +41,13 @@ pub async fn get_wsos(
     State(state): State<AppState>,
     Query(query): Query<ListWsoQuery>,
 ) -> Result<Json<Vec<WsoOrder>>, AppError> {
+
     let wsos = if query.search.is_none() && query.status.is_none() {
+
         wso::find_all(&state.pool).await?
+
     } else {
+
         wso::find_all_filtered(
             &state.pool,
             query.search.as_deref(),
@@ -59,8 +63,11 @@ pub async fn get_wso(
     State(state): State<AppState>,
     Path(id): Path<i32>,
 ) -> Result<Json<WsoDetail>, AppError> {
-    let wso_detail = wso_service::get_wso_detail(&state.pool, id).await?;
-    Ok(Json(wso_detail))
+
+    let detail =
+        wso_service::get_wso_detail(&state.pool, id).await?;
+
+    Ok(Json(detail))
 }
 
 pub async fn update_wso(
@@ -68,37 +75,37 @@ pub async fn update_wso(
     Path(id): Path<i32>,
     Json(payload): Json<UpdateWsoRequest>,
 ) -> Result<Json<WsoOrder>, AppError> {
-    let mut wso_record = wso::find_by_id(&state.pool, id).await?;
+
+    let mut order =
+        wso::find_by_id(&state.pool, id).await?;
+
+    if let Some(val) = payload.date_signed {
+        order.date_signed = Some(val);
+    }
 
     if let Some(val) = payload.wso_number {
-        wso_record.wso_number = val;
-    }
-    if let Some(val) = payload.category_id {
-        wso_record.category_id = Some(val);
-    }
-    if let Some(val) = payload.date_signed {
-        wso_record.date_signed = Some(val);
-    }
-    if let Some(val) = payload.req_number {
-        wso_record.req_number = Some(val);
-    }
-    if let Some(val) = payload.description {
-        wso_record.description = Some(val);
-    }
-    if let Some(val) = payload.design_code {
-        wso_record.design_code = Some(val);
-    }
-    if let Some(val) = payload.fabric_code {
-        wso_record.fabric_code = Some(val);
-    }
-    if let Some(val) = payload.remarks {
-        wso_record.remarks = Some(val);
-    }
-    if let Some(val) = payload.status {
-        wso_record.status = val;
+        order.wso_number = val;
     }
 
-    let updated = wso::update(&state.pool, &wso_record).await?;
+    if let Some(val) = payload.req_number {
+        order.req_number = Some(val);
+    }
+
+    if let Some(val) = payload.attachment_name {
+        order.attachment_name = Some(val);
+    }
+
+    if let Some(val) = payload.attachment_path {
+        order.attachment_path = Some(val);
+    }
+
+    if let Some(val) = payload.status {
+        order.status = val;
+    }
+
+    let updated =
+        wso::update(&state.pool, &order).await?;
+
     Ok(Json(updated))
 }
 
@@ -106,20 +113,20 @@ pub async fn cancel_wso(
     State(state): State<AppState>,
     Path(id): Path<i32>,
 ) -> Result<Json<WsoOrder>, AppError> {
-    let cancelled = wso_service::cancel(&state.pool, id).await?;
+
+    let cancelled =
+        wso_service::cancel(&state.pool, id).await?;
+
     Ok(Json(cancelled))
 }
 
 pub async fn reactivate_wso(
-    Path(id): Path<i32>,
     State(state): State<AppState>,
-) -> Result<Json<WsoOrder>,AppError> {
+    Path(id): Path<i32>,
+) -> Result<Json<WsoOrder>, AppError> {
 
-    let order = crate::services::wso::reactivate(
-        &state.pool,
-        id,
-    )
-    .await?;
+    let order =
+        wso_service::reactivate(&state.pool, id).await?;
 
     Ok(Json(order))
 }
@@ -130,9 +137,11 @@ pub async fn upload_attachment(
     mut multipart: Multipart,
 ) -> Result<Json<WsoOrder>, AppError> {
 
-    let mut wso = wso::find_by_id(&state.pool, id).await?;
+    let mut order =
+        wso::find_by_id(&state.pool, id).await?;
 
     while let Some(field) = multipart.next_field().await? {
+
         let file_name = field
             .file_name()
             .map(|s| s.to_string())
@@ -142,15 +151,17 @@ pub async fn upload_attachment(
 
         fs::create_dir_all("uploads").await?;
 
-        let saved_path = format!("uploads/{}_{}", id, file_name);
+        let saved_path =
+            format!("uploads/{}_{}", id, file_name);
 
         fs::write(&saved_path, data).await?;
 
-        wso.attachment_name = Some(file_name);
-        wso.attachment_path = Some(saved_path);
+        order.attachment_name = Some(file_name);
+        order.attachment_path = Some(saved_path);
     }
 
-    let updated = wso::update(&state.pool, &wso).await?;
+    let updated =
+        wso::update(&state.pool, &order).await?;
 
     Ok(Json(updated))
 }
@@ -158,6 +169,9 @@ pub async fn upload_attachment(
 pub async fn get_wso_summary(
     State(state): State<AppState>,
 ) -> Result<Json<WsoSummary>, AppError> {
-    let summary = wso_service::get_wso_summary(&state.pool).await?;
+
+    let summary =
+        wso_service::get_wso_summary(&state.pool).await?;
+
     Ok(Json(summary))
 }

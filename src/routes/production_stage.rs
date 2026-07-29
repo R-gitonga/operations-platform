@@ -13,21 +13,17 @@ use crate::{
 };
 
 pub fn routes() -> Router<AppState> {
-
     Router::new()
-
         .route(
             "/production-stages",
             get(list_production_stages),
         )
-
         .route(
-            "/wso/{id}/stage-history",
+            "/wso-items/{id}/stage-history",
             get(get_stage_history),
         )
-
         .route(
-            "/wso/{id}/stage",
+            "/wso-items/{id}/stage",
             post(change_stage),
         )
 }

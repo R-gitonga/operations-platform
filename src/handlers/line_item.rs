@@ -17,18 +17,18 @@ use crate::{
 
 pub async fn create_line_item(
     State(state): State<AppState>,
-    Path(wso_order_id): Path<i32>,
+    Path(wso_item_id): Path<i32>,
     Json(payload): Json<CreateWsoLineItemRequest>,
 ) -> Result<Json<WsoLineItem>, AppError> {
-    let created = line_item::create(&state.pool, wso_order_id, &payload).await?;
+    let created = line_item::create(&state.pool, wso_item_id, &payload).await?;
     Ok(Json(created))
 }
 
 pub async fn get_line_items(
     State(state): State<AppState>,
-    Path(wso_order_id): Path<i32>,
+    Path(wso_item_id): Path<i32>,
 ) -> Result<Json<Vec<WsoLineItem>>, AppError> {
-    let items = line_item::find_by_wso(&state.pool, wso_order_id).await?;
+    let items = line_item::find_by_wso(&state.pool, wso_item_id).await?;
     Ok(Json(items))
 }
 

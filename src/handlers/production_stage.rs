@@ -7,13 +7,13 @@ use crate::{
     app_state::AppState,
     errors::app_error::AppError,
     models::{
-        change_wso_stage::ChangeWsoStageRequest,
+        change_production_item_stage::ChangeProductionItemStageRequest,
         production_stage::ProductionStage,
         wso_stage_history::WsoStageHistory,
     },
     services::{
         production_stage,
-        wso_stage_history,
+        production_item_stage_history,
     },
 };
 
@@ -29,13 +29,13 @@ pub async fn list_production_stages(
 
 pub async fn get_stage_history(
     State(state): State<AppState>,
-    Path(wso_id): Path<i32>,
+    Path(wso_item_id): Path<i32>,
 ) -> Result<Json<Vec<WsoStageHistory>>, AppError> {
 
     let history =
-        wso_stage_history::list(
+        production_item_stage_history::list(
             &state.pool,
-            wso_id,
+            wso_item_id,
         )
         .await?;
 
@@ -44,13 +44,13 @@ pub async fn get_stage_history(
 
 pub async fn change_stage(
     State(state): State<AppState>,
-    Path(wso_id): Path<i32>,
-    Json(request): Json<ChangeWsoStageRequest>,
+    Path(wso_item_id): Path<i32>,
+    Json(request): Json<ChangeProductionItemStageRequest>,
 ) -> Result<(), AppError> {
 
-    wso_stage_history::create(
+    production_item_stage_history::create(
         &state.pool,
-        wso_id,
+        wso_item_id,
         request,
     )
     .await?;

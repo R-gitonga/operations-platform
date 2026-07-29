@@ -18,7 +18,7 @@ use crate::{
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route(
-            "/wso/{id}/line-items",
+            "/wso-items/{id}/line-items",
             post(create_line_item).get(get_line_items),
         )
         .route(

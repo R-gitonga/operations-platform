@@ -31,6 +31,7 @@ pub struct ReceiveLineItemRequest {
 pub struct WsoLineItem {
     pub id: i32,
     pub wso_order_id: i32,
+    pub wso_item_id: i32,
     pub size: String,
     pub qty_raised: i32,
     pub qty_received: i32,

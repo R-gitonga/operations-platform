@@ -6,11 +6,13 @@ use crate::{
     models::{
         wso::WsoOrder,
         wso_detail::WsoDetail,
+        wso_item_detail::WsoItemDetail,
         wso_summary::WsoSummary,
     },
     repositories::{
         line_item,
         wso,
+        wso_item,
     },
     services::wso_rules,
 };
@@ -20,49 +22,102 @@ pub async fn get_wso_detail(
     wso_id: i32,
 ) -> Result<WsoDetail, sqlx::Error> {
 
-    let wso_order =
-        wso::find_by_id(pool, wso_id).await?;
+    let order = wso::find_by_id(pool, wso_id).await?;
 
-    let line_items =
-        line_item::find_by_wso(pool, wso_id).await?;
+    let items = wso_item::find_by_wso(pool, wso_id).await?;
 
-    let total_qty_raised =
-        line_items.iter().map(|x| x.qty_raised).sum();
+    let mut detail_items = Vec::new();
 
-    let total_qty_received =
-        line_items.iter().map(|x| x.qty_received).sum();
+    let mut total_qty_raised = 0;
+    let mut total_qty_received = 0;
+    let mut total_balance = 0;
 
-    let total_balance =
-        line_items.iter().map(|x| x.balance).sum();
+    for item in items {
 
-        Ok(WsoDetail {
-        id: wso_order.id,
-        category_id: wso_order.category_id,
-        date_signed: wso_order.date_signed,
-        wso_number: wso_order.wso_number,
-        req_number: wso_order.req_number,
-        description: wso_order.description,
-        design_code: wso_order.design_code,
-        fabric_code: wso_order.fabric_code,
-        remarks: wso_order.remarks,
-        attachment_name: wso_order.attachment_name,
-        attachment_path: wso_order.attachment_path,
-        status: wso_order.status,
+        let line_items =
+            line_item::find_by_item(pool, item.id).await?;
 
-        current_stage_id: wso_order.current_stage_id,
-        current_stage_name: wso_order.current_stage_name,
-        current_stage_color: wso_order.current_stage_color,
-        current_stage_changed_by: wso_order.current_stage_changed_by,
-        current_stage_changed_at: wso_order.current_stage_changed_at,
-        current_stage_notes: wso_order.current_stage_notes,
+        let qty_raised: i32 =
+            line_items.iter().map(|x| x.qty_raised).sum();
 
-        line_item_count: line_items.len(),
-        total_qty_raised,
-        total_qty_received,
-        total_balance,
+        let qty_received: i32 =
+            line_items.iter().map(|x| x.qty_received).sum();
 
-        line_items,
-    })
+        let balance: i32 =
+            line_items.iter().map(|x| x.balance).sum();
+
+        total_qty_raised += qty_raised;
+        total_qty_received += qty_received;
+        total_balance += balance;
+
+        detail_items.push(
+            WsoItemDetail {
+
+                id: item.id,
+
+                category_id: item.category_id,
+
+                description: item.description,
+
+                design_code: item.design_code,
+
+                fabric_code: item.fabric_code,
+
+                branding_required: item.branding_required,
+
+                branding_completed: item.branding_completed,
+
+                current_stage_id: item.current_stage_id,
+
+                current_stage_name: item.current_stage_name,
+
+                current_stage_color: item.current_stage_color,
+
+                current_stage_changed_by: item.current_stage_changed_by,
+
+                current_stage_changed_at: item.current_stage_changed_at,
+
+                current_stage_notes: item.current_stage_notes,
+
+                total_qty_raised: qty_raised,
+
+                total_qty_received: qty_received,
+
+                total_balance: balance,
+
+                line_items,
+            }
+        );
+    }
+
+    Ok(
+        WsoDetail {
+
+            id: order.id,
+
+            date_signed: order.date_signed,
+
+            wso_number: order.wso_number,
+
+            req_number: order.req_number,
+
+            attachment_name: order.attachment_name,
+
+            attachment_path: order.attachment_path,
+
+            status: order.status,
+
+            total_items: detail_items.len(),
+
+            total_qty_raised,
+
+            total_qty_received,
+
+            total_balance,
+
+            items: detail_items,
+        }
+    )
 }
 
 pub async fn get_wso_summary(
@@ -80,7 +135,7 @@ pub async fn get_wso_summary(
         LEFT JOIN wso_line_items
             ON wso_orders.id = wso_line_items.wso_order_id
         GROUP BY wso_orders.status
-        "#,
+        "#
     )
     .fetch_all(pool)
     .await?;
@@ -94,17 +149,10 @@ pub async fn get_wso_summary(
 
     for row in rows {
 
-        let status: String =
-            row.try_get("status")?;
-
-        let count: i64 =
-            row.try_get("order_count")?;
-
-        let raised: i64 =
-            row.try_get("total_qty_raised")?;
-
-        let received: i64 =
-            row.try_get("total_qty_received")?;
+        let status: String = row.try_get("status")?;
+        let count: i64 = row.try_get("order_count")?;
+        let raised: i64 = row.try_get("total_qty_raised")?;
+        let received: i64 = row.try_get("total_qty_received")?;
 
         status_counts.insert(status, count);
 
@@ -118,8 +166,7 @@ pub async fn get_wso_summary(
         status_counts,
         total_qty_raised,
         total_qty_received,
-        total_balance:
-            total_qty_raised - total_qty_received,
+        total_balance: total_qty_raised - total_qty_received,
     })
 }
 
@@ -165,10 +212,21 @@ pub async fn refresh_wso_status(
         return Ok(());
     }
 
-    let items =
-        line_item::find_by_wso(pool, wso_id).await?;
+    let wso_items =
+    wso_item::find_by_wso(pool, wso_id).await?;
 
-    if items.is_empty() {
+    let mut all_line_items = Vec::new();
+
+    for item in wso_items {
+
+        let mut lines =
+            line_item::find_by_item(pool, item.id).await?;
+
+        all_line_items.append(&mut lines);
+    }
+
+    if all_line_items.is_empty() {
+
         order.status = "active".to_string();
 
         wso::update(pool, &order).await?;
@@ -177,10 +235,10 @@ pub async fn refresh_wso_status(
     }
 
     let total_raised: i32 =
-        items.iter().map(|x| x.qty_raised).sum();
+        all_line_items.iter().map(|x| x.qty_raised).sum();
 
     let total_received: i32 =
-        items.iter().map(|x| x.qty_received).sum();
+        all_line_items.iter().map(|x| x.qty_received).sum();
 
     if total_received == 0 {
 

@@ -8,3 +8,4 @@ pub mod notification_log;
 pub mod notification_job;
 pub mod production_stage;
 pub mod wso_stage_history;
+pub mod wso_item;

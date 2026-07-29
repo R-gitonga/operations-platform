@@ -14,4 +14,4 @@ pub mod email_sender;
 pub mod notification_job;
 pub mod notification_worker;
 pub mod production_stage;
-pub mod wso_stage_history;
+pub mod production_item_stage_history;

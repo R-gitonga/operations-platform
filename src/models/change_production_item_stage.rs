@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
-pub struct ChangeWsoStageRequest {
+pub struct ChangeProductionItemStageRequest {
     pub production_stage_id: i32,
 
     pub notes: Option<String>,

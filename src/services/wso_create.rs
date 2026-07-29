@@ -2,12 +2,18 @@ use crate::{
     database::DbPool,
     errors::app_error::AppError,
     models::{
-        create_complete_wso::CreateCompleteWsoRequest,
+        create_complete_wso::{
+            CreateCompleteWsoRequest,
+            CreateProductionItemRequest,
+        },
+        create_wso_item::CreateWsoItemRequest,
         wso_detail::WsoDetail,
+        wso_item_detail::WsoItemDetail,
     },
     repositories::{
         line_item,
         wso,
+        wso_item,
     },
 };
 
@@ -17,56 +23,159 @@ pub async fn create_complete_wso(
     pool: &DbPool,
     payload: &CreateCompleteWsoRequest,
 ) -> Result<WsoDetail, AppError> {
-    for item_payload in &payload.line_items {
-        line_item_service::validate_create_payload(item_payload)?;
+
+    //-------------------------------------------------
+    // Validate every line item
+    //-------------------------------------------------
+
+    for item in &payload.items {
+        for line in &item.line_items {
+            line_item_service::validate_create_payload(line)?;
+        }
     }
 
     let mut tx = pool.begin().await?;
-    let created_wso = wso::create_tx(&mut tx, payload).await?;
 
-    let mut created_line_items = Vec::with_capacity(payload.line_items.len());
-    for item_payload in &payload.line_items {
-        let created_item = line_item::create_tx(&mut tx, created_wso.id, item_payload).await?;
-        created_line_items.push(created_item);
+    //-------------------------------------------------
+    // Create WSO
+    //-------------------------------------------------
+
+    let created_wso =
+        wso::create_tx(&mut tx, payload).await?;
+
+    let mut detail_items = Vec::new();
+
+    let mut total_qty_raised = 0;
+    let mut total_qty_received = 0;
+    let mut total_balance = 0;
+
+    //-------------------------------------------------
+    // Create every production item
+    //-------------------------------------------------
+
+    for production_item in &payload.items {
+
+        let item_payload = CreateWsoItemRequest {
+
+            category_id: Some(production_item.category_id),
+
+            description: Some(production_item.description.clone()),
+
+            design_code: Some(production_item.design_code.clone()),
+
+            fabric_code: Some(production_item.fabric_code.clone()),
+
+            branding_required: production_item.branding_required,
+        };
+
+        let created_item =
+            wso_item::create_tx(
+                &mut tx,
+                created_wso.id,
+                &item_payload,
+            )
+            .await?;
+
+        let mut created_lines = Vec::new();
+
+        let mut item_qty_raised = 0;
+        let mut item_qty_received = 0;
+        let mut item_balance = 0;
+
+        //-------------------------------------------------
+        // Create every size line
+        //-------------------------------------------------
+
+        for line in &production_item.line_items {
+
+            let created =
+                line_item::create_tx(
+                    &mut tx,
+                    created_wso.id,
+                    created_item.id,
+                    line,
+                )
+                .await?;
+
+            item_qty_raised += created.qty_raised;
+            item_qty_received += created.qty_received;
+            item_balance += created.balance;
+
+            created_lines.push(created);
+        }
+
+        total_qty_raised += item_qty_raised;
+        total_qty_received += item_qty_received;
+        total_balance += item_balance;
+
+        detail_items.push(WsoItemDetail {
+
+            id: created_item.id,
+
+            category_id: created_item.category_id,
+
+            description: created_item.description,
+
+            design_code: created_item.design_code,
+
+            fabric_code: created_item.fabric_code,
+
+            branding_required: created_item.branding_required,
+
+            branding_completed: created_item.branding_completed,
+
+            current_stage_id: created_item.current_stage_id,
+
+            current_stage_name: created_item.current_stage_name,
+
+            current_stage_color: created_item.current_stage_color,
+
+            current_stage_changed_by: created_item.current_stage_changed_by,
+
+            current_stage_changed_at: created_item.current_stage_changed_at,
+
+            current_stage_notes: created_item.current_stage_notes,
+
+            total_qty_raised: item_qty_raised,
+
+            total_qty_received: item_qty_received,
+
+            total_balance: item_balance,
+
+            line_items: created_lines,
+        });
     }
 
-    let total_qty_raised: i32 = created_line_items.iter().map(|item| item.qty_raised).sum();
-    let total_qty_received: i32 = created_line_items.iter().map(|item| item.qty_received).sum();
-    let total_balance: i32 = created_line_items.iter().map(|item| item.balance).sum();
-    let line_item_count = created_line_items.len();
-
-    let wso_detail = WsoDetail {
-    id: created_wso.id,
-    category_id: created_wso.category_id,
-    date_signed: created_wso.date_signed,
-    wso_number: created_wso.wso_number,
-    req_number: created_wso.req_number,
-    description: created_wso.description,
-    design_code: created_wso.design_code,
-    fabric_code: created_wso.fabric_code,
-    remarks: created_wso.remarks,
-    attachment_name: created_wso.attachment_name,
-    attachment_path: created_wso.attachment_path,
-    status: created_wso.status,
-
-    // Production stage
-    current_stage_id: None,
-    current_stage_name: None,
-    current_stage_color: None,
-    current_stage_changed_by: None,
-    current_stage_changed_at: None,
-    current_stage_notes: None,
-
-    // Statistics
-    line_item_count,
-    total_qty_raised,
-    total_qty_received,
-    total_balance,
-
-    // Children
-    line_items: created_line_items,
-};
-
     tx.commit().await?;
-    Ok(wso_detail)
+
+    //-------------------------------------------------
+    // Return completed detail
+    //-------------------------------------------------
+
+    Ok(WsoDetail {
+
+        id: created_wso.id,
+
+        date_signed: created_wso.date_signed,
+
+        wso_number: created_wso.wso_number,
+
+        req_number: created_wso.req_number,
+
+        attachment_name: created_wso.attachment_name,
+
+        attachment_path: created_wso.attachment_path,
+
+        status: created_wso.status,
+
+        total_items: detail_items.len(),
+
+        total_qty_raised,
+
+        total_qty_received,
+
+        total_balance,
+
+        items: detail_items,
+    })
 }
