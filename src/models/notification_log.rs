@@ -1,4 +1,4 @@
-use chrono::NaiveDateTime;
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -15,7 +15,7 @@ pub struct NotificationLog {
 
     pub error_message: Option<String>,
 
-    pub created_at: NaiveDateTime,
+    pub created_at: DateTime<Utc>,
 
-    pub sent_at: Option<NaiveDateTime>,
+    pub sent_at: Option<DateTime<Utc>>,
 }

@@ -8,8 +8,8 @@ pub fn render(
 ) -> Result<RenderedEmail, String> {
 
     let wso_number = context.get("wso_number");
-    let department = context.get("department");
-    let description = context.get("description");
+
+    let req_number = context.get("req_number");
 
     let html = format!(
         r#"
@@ -21,9 +21,7 @@ pub fn render(
 
         <p><strong>WSO Number:</strong> {}</p>
 
-        <p><strong>Department:</strong> {}</p>
-
-        <p><strong>Description:</strong> {}</p>
+        <p><strong>REQ Number:</strong> {}</p>
 
         <hr>
 
@@ -36,8 +34,7 @@ pub fn render(
         <p><em>Generated automatically by the Operations Platform.</em></p>
         "#,
         wso_number,
-        department,
-        description,
+        req_number,
         context.actor_name,
         context.actor_email,
     );
@@ -45,8 +42,9 @@ pub fn render(
     Ok(RenderedEmail {
 
         subject: format!(
-            "Workshop Order {} Created",
+            "Workshop Order {} (REQ {}) Created",
             wso_number,
+            req_number,
         ),
 
         html_body: html,

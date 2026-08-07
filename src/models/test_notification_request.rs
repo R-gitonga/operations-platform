@@ -10,7 +10,5 @@ pub struct TestNotificationRequest {
 
     pub wso_number: String,
 
-    pub department: String,
-
-    pub description: String,
+    pub req_number: Option<String>,
 }

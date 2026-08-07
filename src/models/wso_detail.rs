@@ -1,5 +1,7 @@
 use serde::Serialize;
 
+use chrono::{NaiveDate};
+
 use crate::models::wso_item_detail::WsoItemDetail;
 
 #[derive(Debug, Serialize)]
@@ -7,7 +9,7 @@ pub struct WsoDetail {
 
     pub id: i32,
 
-    pub date_signed: Option<chrono::NaiveDate>,
+    pub date_signed: Option<NaiveDate>,
 
     pub wso_number: String,
 

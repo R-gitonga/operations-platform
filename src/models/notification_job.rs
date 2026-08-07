@@ -1,4 +1,6 @@
 use serde::{Deserialize, Serialize};
+use chrono::{DateTime, Utc};
+
 use sqlx::FromRow;
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -20,7 +22,7 @@ pub struct NotificationJob {
 
     pub error_message: Option<String>,
 
-    pub created_at: chrono::NaiveDateTime,
+    pub created_at: DateTime<Utc>,
 
-    pub processed_at: Option<chrono::NaiveDateTime>,
+    pub processed_at: Option<DateTime<Utc>>,
 }

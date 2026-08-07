@@ -1,4 +1,4 @@
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
@@ -26,11 +26,12 @@ pub struct WsoItem {
     pub current_stage_name: Option<String>,
     pub current_stage_color: Option<String>,
     pub current_stage_changed_by: Option<String>,
-    pub current_stage_changed_at: Option<NaiveDateTime>,
+    pub current_stage_changed_at: Option<DateTime<Utc>>,
     pub current_stage_notes: Option<String>,
+    pub status: String,
 
     // Audit
     pub created_by: Option<String>,
-    pub created_at: Option<NaiveDateTime>,
-    pub updated_at: Option<NaiveDateTime>,
+    pub created_at: Option<DateTime<Utc>>,
+    pub updated_at: Option<DateTime<Utc>>,
 }

@@ -11,6 +11,7 @@ use serde_json::json;
 pub enum AppError {
     NotFound,
     BadRequest(String),
+    Validation(String),
     Sqlx(sqlx::Error),
     Multipart(MultipartError),
     Io(std::io::Error),
@@ -22,6 +23,9 @@ impl std::fmt::Display for AppError {
             AppError::NotFound => write!(f, "Not found"),
             AppError::BadRequest(message) => {
                 write!(f, "Bad Request: {}", message)
+            }
+            AppError::Validation(message) => {
+                write!(f, "Validation error: {}", message)
             }
             AppError::Sqlx(err) => {
                 write!(f, "Database error: {}", err)
@@ -67,11 +71,21 @@ impl IntoResponse for AppError {
                 Json(json!({"error": "Not found"})),
             )
                 .into_response(),
+                
             AppError::BadRequest(message) => (
                 StatusCode::BAD_REQUEST,
                 Json(json!({"error": message})),
             )
                 .into_response(),
+
+            AppError::Validation(message) => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(json!({
+                    "error": message
+                })),
+            )
+            .into_response(),
+
             AppError::Sqlx(err) => {
                 eprintln!("database error: {:?}", err);
                 (

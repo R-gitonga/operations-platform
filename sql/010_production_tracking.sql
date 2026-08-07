@@ -35,9 +35,9 @@ INSERT INTO production_stages
     color
 )
 VALUES
-('cad_room',           'CAD Room',             1, '#7c3aed'),
-('fabric_allocation',  'Fabric Allocation',    2, '#2563eb'),
-('cutting',            'Cutting',              3, '#ea580c'),
+('cad_room',           'CAD Room',             1, 'rgb(124, 58, 237)'),
+('fabric_allocation',  'Fabric Allocation',    2, 'rgb(37, 99, 235)'),
+('cutting',            'Cutting',              3, 'rgb(234, 88, 12)'),
 ('embroidery',         'Embroidery',           4, '#db2777'),
 ('printing',           'Printing',             5, '#0891b2'),
 ('production',         'Production Floor',     6, '#16a34a'),
@@ -53,11 +53,11 @@ DO NOTHING;
 -- Current Stage On WSO
 ------------------------------------------------------------
 
-ALTER TABLE wsos
+ALTER TABLE wso_orders
 
 ADD COLUMN IF NOT EXISTS current_stage_id INTEGER;
 
-ALTER TABLE wsos
+ALTER TABLE wso_orders
 
 ADD CONSTRAINT fk_wsos_current_stage
 

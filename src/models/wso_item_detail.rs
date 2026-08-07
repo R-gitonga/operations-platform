@@ -1,5 +1,7 @@
 use serde::Serialize;
 
+use chrono::{DateTime, NaiveDate, Utc};
+
 use crate::models::line_item::WsoLineItem;
 
 #[derive(Debug, Serialize)]
@@ -19,6 +21,8 @@ pub struct WsoItemDetail {
 
     pub branding_completed: bool,
 
+    pub status: String,
+
     pub current_stage_id: Option<i32>,
 
     pub current_stage_name: Option<String>,
@@ -27,7 +31,7 @@ pub struct WsoItemDetail {
 
     pub current_stage_changed_by: Option<String>,
 
-    pub current_stage_changed_at: Option<chrono::NaiveDateTime>,
+    pub current_stage_changed_at: Option<DateTime<Utc>>,
 
     pub current_stage_notes: Option<String>,
 

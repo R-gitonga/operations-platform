@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     database::DbPool,
     errors::app_error::AppError,
@@ -9,12 +11,17 @@ use crate::{
         create_wso_item::CreateWsoItemRequest,
         wso_detail::WsoDetail,
         wso_item_detail::WsoItemDetail,
+        notification_context::NotificationContext,
     },
     repositories::{
         line_item,
+        production_stage,
         wso,
         wso_item,
     },
+    services::{
+        notifications,
+    }
 };
 
 use super::line_item as line_item_service;
@@ -49,6 +56,21 @@ pub async fn create_complete_wso(
     let mut total_qty_received = 0;
     let mut total_balance = 0;
 
+    let not_started_stage = production_stage::find_by_code_tx(
+        &mut tx,
+        "NOT_STARTED",
+    )
+    .await?;
+
+    let not_started_stage = match not_started_stage {
+        Some(stage) => stage,
+        None => {
+            return Err(AppError::BadRequest(
+                "Required production stage 'NOT_STARTED' was not found".to_string(),
+            ));
+        }
+    };
+
     //-------------------------------------------------
     // Create every production item
     //-------------------------------------------------
@@ -69,10 +91,13 @@ pub async fn create_complete_wso(
         };
 
         let created_item =
-            wso_item::create_tx(
+            wso_item::create_with_initial_stage_tx(
                 &mut tx,
                 created_wso.id,
                 &item_payload,
+                Some(not_started_stage.id),
+                Some("System"),
+                Some("Initial stage assigned on item creation"),
             )
             .await?;
 
@@ -124,6 +149,8 @@ pub async fn create_complete_wso(
 
             branding_completed: created_item.branding_completed,
 
+            status: created_item.status,
+
             current_stage_id: created_item.current_stage_id,
 
             current_stage_name: created_item.current_stage_name,
@@ -147,6 +174,45 @@ pub async fn create_complete_wso(
     }
 
     tx.commit().await?;
+
+    // Dispatch WSO created notification
+
+    let mut variables = HashMap::new();
+
+    variables.insert(
+        "wso_number".to_string(),
+        created_wso.wso_number.clone(),
+    );
+
+    if let Some(req_number) = &created_wso.req_number {
+        variables.insert(
+            "req_number".to_string(),
+            req_number.clone(),
+        );
+    }
+
+    let context = NotificationContext {
+        event_code: "wso_created".to_string(),
+
+        actor_name: "Operations Platform".to_string(),
+
+        actor_email: "System".to_string(),
+
+        variables,
+    };
+
+    if let Err(error) =
+        notifications::dispatch(
+            pool,
+            context
+        ).await
+        {
+            eprintln!(
+                "Failed to dispatch wso_created notification for WSO {}: {}",
+                created_wso.wso_number,
+                error
+            );
+        }
 
     //-------------------------------------------------
     // Return completed detail

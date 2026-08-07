@@ -1,4 +1,4 @@
-use sqlx::Row;
+use sqlx::{Postgres, Row, Transaction};
 
 use crate::{
     database::DbPool,
@@ -13,9 +13,20 @@ pub async fn create(
     wso_item_id: i32,
     request: ChangeProductionItemStageRequest,
 ) -> Result<(), sqlx::Error> {
-
     let mut tx = pool.begin().await?;
 
+    create_tx(&mut tx, wso_item_id, request).await?;
+
+    tx.commit().await?;
+
+    Ok(())
+}
+
+pub async fn create_tx(
+    tx: &mut Transaction<'_, Postgres>,
+    wso_item_id: i32,
+    request: ChangeProductionItemStageRequest,
+) -> Result<(), sqlx::Error> {
     //---------------------------------------------------------
     // Update the item's current stage
     //---------------------------------------------------------
@@ -30,7 +41,7 @@ pub async fn create(
     )
     .bind(request.production_stage_id)
     .bind(wso_item_id)
-    .execute(&mut *tx)
+    .execute(tx.as_mut())
     .await?;
 
     //---------------------------------------------------------
@@ -56,10 +67,8 @@ pub async fn create(
     .bind(request.production_stage_id)
     .bind(request.notes)
     .bind(request.changed_by)
-    .execute(&mut *tx)
+    .execute(tx.as_mut())
     .await?;
-
-    tx.commit().await?;
 
     Ok(())
 }
@@ -68,7 +77,6 @@ pub async fn find_by_wso_item(
     pool: &DbPool,
     wso_item_id: i32,
 ) -> Result<Vec<WsoStageHistory>, sqlx::Error> {
-
     let rows = sqlx::query(
         r#"
         SELECT
@@ -93,7 +101,6 @@ pub async fn find_by_wso_item(
     let history = rows
         .into_iter()
         .map(|row| WsoStageHistory {
-
             id: row.get("id"),
 
             wso_item_id: row.get("wso_item_id"),

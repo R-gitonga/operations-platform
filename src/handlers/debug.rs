@@ -27,15 +27,13 @@ pub async fn send_test_notification(
         request.wso_number,
     );
 
+    if let Some(req_number) = request.req_number {
     variables.insert(
-        "department".to_string(),
-        request.department,
+        "req_number".to_string(),
+        req_number,
     );
+}
 
-    variables.insert(
-        "description".to_string(),
-        request.description,
-    );
 
     let context = NotificationContext {
 

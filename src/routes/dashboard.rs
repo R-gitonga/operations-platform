@@ -5,7 +5,7 @@ use axum::{
 
 use crate::{
     app_state::AppState,
-    handlers::dashboard::get_dashboard,
+    handlers::dashboard::{get_attention_required, get_dashboard},
 };
 
 pub fn routes() -> Router<AppState> {
@@ -13,5 +13,9 @@ pub fn routes() -> Router<AppState> {
         .route(
             "/dashboard",
             get(get_dashboard),
+        )
+        .route(
+            "/dashboard/attention-required",
+            get(get_attention_required),
         )
 }

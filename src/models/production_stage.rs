@@ -14,4 +14,8 @@ pub struct ProductionStage {
     pub color: String,
 
     pub active: bool,
+
+    pub expected_duration_hours: Option<i32>,
+
+    pub attention_enabled: bool,
 }

@@ -1,4 +1,4 @@
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
@@ -17,5 +17,5 @@ pub struct WsoStageHistory {
 
     pub changed_by: String,
 
-    pub changed_at: NaiveDateTime,
+    pub changed_at: DateTime<Utc>,
 }
