@@ -6,6 +6,7 @@ use axum::{
 };
 
 use crate::{
+    authenticated_user::AuthenticatedUser,
     app_state::AppState,
     errors::app_error::AppError,
     models::{
@@ -17,6 +18,7 @@ use crate::{
 
 pub async fn send_test_notification(
     State(state): State<AppState>,
+    AuthenticatedUser(user): AuthenticatedUser,
     Json(request): Json<TestNotificationRequest>,
 ) -> Result<(), AppError> {
 
@@ -39,9 +41,9 @@ pub async fn send_test_notification(
 
         event_code: request.event_code,
 
-        actor_name: request.actor_name,
+        actor_name: user.name,
 
-        actor_email: request.actor_email,
+        actor_email: user.email,
 
         variables,
     };

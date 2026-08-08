@@ -12,6 +12,7 @@ use crate::{
         wso_detail::WsoDetail,
         wso_item_detail::WsoItemDetail,
         notification_context::NotificationContext,
+        user::User,
     },
     repositories::{
         line_item,
@@ -29,6 +30,7 @@ use super::line_item as line_item_service;
 pub async fn create_complete_wso(
     pool: &DbPool,
     payload: &CreateCompleteWsoRequest,
+    actor: &User,
 ) -> Result<WsoDetail, AppError> {
 
     //-------------------------------------------------
@@ -96,7 +98,7 @@ pub async fn create_complete_wso(
                 created_wso.id,
                 &item_payload,
                 Some(not_started_stage.id),
-                Some("System"),
+                Some(&actor.name),
                 Some("Initial stage assigned on item creation"),
             )
             .await?;
@@ -194,9 +196,9 @@ pub async fn create_complete_wso(
     let context = NotificationContext {
         event_code: "wso_created".to_string(),
 
-        actor_name: "Operations Platform".to_string(),
+        actor_name: actor.name.clone(),
 
-        actor_email: "System".to_string(),
+        actor_email: actor.email.clone(),
 
         variables,
     };

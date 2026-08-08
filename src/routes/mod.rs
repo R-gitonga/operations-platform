@@ -6,3 +6,5 @@ pub mod settings;
 pub mod notification_recipient;
 pub mod debug;
 pub mod production_stage;
+pub mod auth;
+pub mod users;

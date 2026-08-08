@@ -4,6 +4,7 @@ use axum::{
 };
 
 use crate::{
+    authenticated_user::AuthenticatedUser,
     app_state::AppState,
     errors::app_error::AppError,
     models::line_item::{
@@ -17,10 +18,11 @@ use crate::{
 
 pub async fn create_line_item(
     State(state): State<AppState>,
+    AuthenticatedUser(user): AuthenticatedUser,
     Path(wso_item_id): Path<i32>,
     Json(payload): Json<CreateWsoLineItemRequest>,
 ) -> Result<Json<WsoLineItem>, AppError> {
-    let created = line_item::create(&state.pool, wso_item_id, &payload).await?;
+    let created = line_item::create(&state.pool, wso_item_id, &payload, &user).await?;
     Ok(Json(created))
 }
 
@@ -42,15 +44,17 @@ pub async fn get_line_item(
 
 pub async fn update_line_item(
     State(state): State<AppState>,
+    AuthenticatedUser(user): AuthenticatedUser,
     Path(line_item_id): Path<i32>,
     Json(payload): Json<UpdateWsoLineItemRequest>,
 ) -> Result<Json<WsoLineItem>, AppError> {
-    let updated = line_item::update(&state.pool, line_item_id, payload).await?;
+    let updated = line_item::update(&state.pool, line_item_id, payload, &user).await?;
     Ok(Json(updated))
 }
 
 pub async fn receive_line_item(
     State(state): State<AppState>,
+    AuthenticatedUser(user): AuthenticatedUser,
     Path(id): Path<i32>,
     Json(payload): Json<ReceiveLineItemRequest>,
 ) -> Result<Json<WsoLineItem>, AppError> {
@@ -59,6 +63,7 @@ pub async fn receive_line_item(
         &state.pool,
         id,
         payload,
+        &user,
     )
     .await?;
 
@@ -67,8 +72,9 @@ pub async fn receive_line_item(
 
 pub async fn delete_line_item(
     State(state): State<AppState>,
+    AuthenticatedUser(user): AuthenticatedUser,
     Path(line_item_id): Path<i32>,
 ) -> Result<Json<WsoLineItem>, AppError> {
-    let deleted = line_item::delete(&state.pool, line_item_id).await?;
+    let deleted = line_item::delete(&state.pool, line_item_id, &user).await?;
     Ok(Json(deleted))
 }

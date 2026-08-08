@@ -11,3 +11,4 @@ pub mod wso_stage_history;
 pub mod wso_item;
 pub mod dashboard;
 pub mod attention_required_notification;
+pub mod user;

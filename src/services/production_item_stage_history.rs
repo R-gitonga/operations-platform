@@ -3,6 +3,7 @@ use crate::{
     errors::app_error::AppError,
     models::{
         change_production_item_stage::ChangeProductionItemStageRequest,
+        user::User,
         wso_stage_history::WsoStageHistory,
     },
     repositories::{
@@ -17,6 +18,7 @@ pub async fn create(
     pool: &DbPool,
     wso_item_id: i32,
     request: ChangeProductionItemStageRequest,
+    actor: &User,
 ) -> Result<(), AppError> {
 
     //---------------------------------------------------------
@@ -51,10 +53,16 @@ pub async fn create(
     // Perform the stage change
     //---------------------------------------------------------
 
+    let request = ChangeProductionItemStageRequest {
+        production_stage_id: request.production_stage_id,
+        notes: request.notes,
+    };
+
     wso_stage_history::create(
         pool,
         wso_item_id,
         request,
+        &actor.name,
     )
     .await?;
 

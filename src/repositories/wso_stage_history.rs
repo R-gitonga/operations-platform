@@ -12,10 +12,11 @@ pub async fn create(
     pool: &DbPool,
     wso_item_id: i32,
     request: ChangeProductionItemStageRequest,
+    changed_by: &str,
 ) -> Result<(), sqlx::Error> {
     let mut tx = pool.begin().await?;
 
-    create_tx(&mut tx, wso_item_id, request).await?;
+    create_tx(&mut tx, wso_item_id, request, changed_by).await?;
 
     tx.commit().await?;
 
@@ -26,6 +27,7 @@ pub async fn create_tx(
     tx: &mut Transaction<'_, Postgres>,
     wso_item_id: i32,
     request: ChangeProductionItemStageRequest,
+    changed_by: &str,
 ) -> Result<(), sqlx::Error> {
     //---------------------------------------------------------
     // Update the item's current stage
@@ -66,7 +68,7 @@ pub async fn create_tx(
     .bind(wso_item_id)
     .bind(request.production_stage_id)
     .bind(request.notes)
-    .bind(request.changed_by)
+    .bind(changed_by)
     .execute(tx.as_mut())
     .await?;
 

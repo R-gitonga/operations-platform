@@ -6,6 +6,7 @@ use serde::Deserialize;
 use tokio::fs;
 
 use crate::{
+    authenticated_user::AuthenticatedUser,
     app_state::AppState,
     errors::app_error::AppError,
     models::{
@@ -23,10 +24,11 @@ use crate::{
 
 pub async fn create_wso(
     State(state): State<AppState>,
+    AuthenticatedUser(user): AuthenticatedUser,
     Json(payload): Json<CreateCompleteWsoRequest>,
 ) -> Result<Json<WsoDetail>, AppError> {
     let created =
-        wso_create_service::create_complete_wso(&state.pool, &payload).await?;
+        wso_create_service::create_complete_wso(&state.pool, &payload, &user).await?;
 
     Ok(Json(created))
 }
@@ -72,6 +74,7 @@ pub async fn get_wso(
 
 pub async fn update_wso(
     State(state): State<AppState>,
+    _user: AuthenticatedUser,
     Path(id): Path<i32>,
     Json(payload): Json<UpdateWsoRequest>,
 ) -> Result<Json<WsoOrder>, AppError> {
@@ -111,28 +114,31 @@ pub async fn update_wso(
 
 pub async fn cancel_wso(
     State(state): State<AppState>,
+    AuthenticatedUser(user): AuthenticatedUser,
     Path(id): Path<i32>,
 ) -> Result<Json<WsoOrder>, AppError> {
 
     let cancelled =
-        wso_service::cancel(&state.pool, id).await?;
+        wso_service::cancel(&state.pool, id, &user).await?;
 
     Ok(Json(cancelled))
 }
 
 pub async fn reactivate_wso(
     State(state): State<AppState>,
+    AuthenticatedUser(user): AuthenticatedUser,
     Path(id): Path<i32>,
 ) -> Result<Json<WsoOrder>, AppError> {
 
     let order =
-        wso_service::reactivate(&state.pool, id).await?;
+        wso_service::reactivate(&state.pool, id, &user).await?;
 
     Ok(Json(order))
 }
 
 pub async fn upload_attachment(
     State(state): State<AppState>,
+    _user: AuthenticatedUser,
     Path(id): Path<i32>,
     mut multipart: Multipart,
 ) -> Result<Json<WsoOrder>, AppError> {

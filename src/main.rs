@@ -2,10 +2,12 @@ mod database;
 mod models;
 mod handlers;
 mod app_state;
+mod authenticated_user;
 mod errors;
 mod routes;
 mod repositories;
 mod services;
+mod config;
 
 use axum::{
     routing::get,
@@ -28,6 +30,8 @@ use routes::{
     notification_recipient::routes as notification_recipient_route,
     debug::routes as debug_route,
     production_stage::routes as production_Stage_route,
+    auth::routes as auth_routes,
+    users::routes as users_routes,
 };
 
 use tower_http::services::ServeDir;
@@ -48,6 +52,9 @@ async fn root() -> Json<ApiResponse> {
 async fn main() {
     dotenv().ok();
 
+    let config = config::Config::from_env()
+        .expect("Failed to load application configuration");
+
     println!("Starting WSO Tracker API...");
 
     let database_url =
@@ -64,6 +71,7 @@ async fn main() {
 
     let state = AppState {
         pool,
+        config,
     };
     let worker_pool = state.pool.clone();
 
@@ -77,6 +85,8 @@ async fn main() {
         .merge(notification_recipient_route())
         .merge(debug_route())
         .merge(production_Stage_route())
+        .merge(auth_routes())
+        .merge(users_routes())
         .nest_service(
             "/uploads",
             ServeDir::new("uploads"),

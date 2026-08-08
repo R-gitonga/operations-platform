@@ -26,3 +26,5 @@ pub mod wso_item;
 pub mod wso_item_detail;
 pub mod wso_stage_history;
 pub mod wso_summary;
+pub mod user;
+pub mod auth;

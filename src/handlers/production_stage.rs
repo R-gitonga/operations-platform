@@ -4,6 +4,7 @@ use axum::{
 };
 
 use crate::{
+    authenticated_user::AuthenticatedUser,
     app_state::AppState,
     errors::app_error::AppError,
     models::{
@@ -49,6 +50,7 @@ pub async fn get_production_stage(
 
 pub async fn create_production_stage(
     State(state): State<AppState>,
+    _user: AuthenticatedUser,
     Json(request): Json<CreateProductionStageRequest>,
 ) -> Result<Json<ProductionStage>, AppError> {
 
@@ -64,6 +66,7 @@ pub async fn create_production_stage(
 
 pub async fn update_production_stage(
     State(state): State<AppState>,
+    _user: AuthenticatedUser,
     Path(id): Path<i32>,
     Json(request): Json<UpdateProductionStageRequest>,
 ) -> Result<Json<ProductionStage>, AppError> {
@@ -81,6 +84,7 @@ pub async fn update_production_stage(
 
 pub async fn deactivate_production_stage(
     State(state): State<AppState>,
+    _user: AuthenticatedUser,
     Path(id): Path<i32>,
 ) -> Result<Json<ProductionStage>, AppError> {
 
@@ -111,6 +115,7 @@ pub async fn get_stage_history(
 
 pub async fn change_stage(
     State(state): State<AppState>,
+    AuthenticatedUser(user): AuthenticatedUser,
     Path(wso_item_id): Path<i32>,
     Json(request): Json<ChangeProductionItemStageRequest>,
 ) -> Result<(), AppError> {
@@ -119,6 +124,7 @@ pub async fn change_stage(
         &state.pool,
         wso_item_id,
         request,
+        &user,
     )
     .await?;
 

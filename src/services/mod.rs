@@ -16,3 +16,8 @@ pub mod notification_worker;
 pub mod production_stage;
 pub mod production_item_stage_history;
 pub mod production_stage_rules;
+pub mod users;
+pub mod password;
+pub mod user_rules;
+pub mod auth;
+pub mod auth_token;

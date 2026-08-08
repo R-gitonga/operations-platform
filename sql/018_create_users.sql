@@ -1,0 +1,20 @@
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+
+    name VARCHAR(150) NOT NULL,
+
+    email VARCHAR(255) NOT NULL,
+
+    password_hash TEXT NOT NULL,
+
+    role VARCHAR(50) NOT NULL DEFAULT 'user',
+
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX users_email_unique
+ON users (LOWER(email));

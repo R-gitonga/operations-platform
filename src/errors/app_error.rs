@@ -9,6 +9,7 @@ use serde_json::json;
 
 #[derive(Debug)]
 pub enum AppError {
+    Unauthorized,
     NotFound,
     BadRequest(String),
     Validation(String),
@@ -20,6 +21,7 @@ pub enum AppError {
 impl std::fmt::Display for AppError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            AppError::Unauthorized => write!(f, "Authentication is required"),
             AppError::NotFound => write!(f, "Not found"),
             AppError::BadRequest(message) => {
                 write!(f, "Bad Request: {}", message)
@@ -66,6 +68,12 @@ impl From<std::io::Error> for AppError {
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         match self {
+            AppError::Unauthorized => (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({"error": "Authentication is required"})),
+            )
+                .into_response(),
+
             AppError::NotFound => (
                 StatusCode::NOT_FOUND,
                 Json(json!({"error": "Not found"})),

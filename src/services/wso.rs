@@ -7,6 +7,7 @@ use crate::{
     errors::app_error::AppError,
     models::{
         notification_context::NotificationContext,
+        user::User,
         wso::WsoOrder,
         wso_detail::WsoDetail,
         wso_item_detail::WsoItemDetail,
@@ -207,6 +208,7 @@ pub async fn get_wso_summary(
 pub async fn cancel(
     pool: &DbPool,
     id: i32,
+    actor: &User,
 ) -> Result<WsoOrder, AppError> {
 
     let order =
@@ -247,11 +249,9 @@ pub async fn cancel(
             event_code:
                 "wso_cancelled".to_string(),
 
-            actor_name:
-                "Operations Platform".to_string(),
+            actor_name: actor.name.clone(),
 
-            actor_email:
-                "System".to_string(),
+            actor_email: actor.email.clone(),
 
             variables,
         };
@@ -268,6 +268,7 @@ pub async fn cancel(
 pub async fn reactivate(
     pool: &DbPool,
     id: i32,
+    actor: &User,
 ) -> Result<WsoOrder, AppError> {
 
     let order =
@@ -308,11 +309,9 @@ pub async fn reactivate(
             event_code:
                 "wso_reactivated".to_string(),
 
-            actor_name:
-                "Operations Platform".to_string(),
+            actor_name: actor.name.clone(),
 
-            actor_email:
-                "System".to_string(),
+            actor_email: actor.email.clone(),
 
             variables,
         };
@@ -336,6 +335,7 @@ pub async fn reactivate(
 pub async fn refresh_wso_status(
     pool: &DbPool,
     wso_id: i32,
+    actor: &User,
 ) -> Result<(), AppError> {
 
     let mut order =
@@ -408,11 +408,9 @@ pub async fn refresh_wso_status(
             NotificationContext {
                 event_code: "wso_completed".to_string(),
 
-                actor_name:
-                    "Operations Platform".to_string(),
+                actor_name: actor.name.clone(),
 
-                actor_email:
-                    "System".to_string(),
+                actor_email: actor.email.clone(),
 
                 variables:
                     std::collections::HashMap::new(),
