@@ -7,6 +7,7 @@ use axum::{
 };
 
 use crate::{
+    authenticated_user::AuthenticatedUser,
     app_state::AppState,
     errors::app_error::AppError,
     models::{
@@ -19,6 +20,7 @@ use crate::{
 
 pub async fn list(
     State(state): State<AppState>,
+    _user: AuthenticatedUser,
 ) -> Result<Json<Vec<NotificationRecipient>>, AppError> {
 
     let recipients = notification_recipient::list(&state.pool).await?;
@@ -28,6 +30,7 @@ pub async fn list(
 
 pub async fn create(
     State(state): State<AppState>,
+    _user: AuthenticatedUser,
     Json(request): Json<CreateNotificationRecipientRequest>,
 ) -> Result<Json<NotificationRecipient>, AppError> {
 
@@ -43,6 +46,7 @@ pub async fn create(
 
 pub async fn update(
     State(state): State<AppState>,
+    _user: AuthenticatedUser,
     Path(id): Path<i32>,
     Json(request): Json<UpdateNotificationRecipientRequest>,
 ) -> Result<Json<NotificationRecipient>, AppError> {

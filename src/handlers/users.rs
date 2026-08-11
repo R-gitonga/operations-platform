@@ -4,6 +4,7 @@ use axum::{
 };
 
 use crate::{
+    authenticated_user::AuthenticatedUser,
     app_state::AppState,
     errors::app_error::AppError,
     models::user::User,
@@ -28,7 +29,11 @@ pub struct UpdateUserRequest {
 
 pub async fn list_users(
     State(state): State<AppState>,
+    user: AuthenticatedUser,
 ) -> Result<Json<Vec<User>>, AppError> {
+    if user.0.role != "admin" {
+        return Err(AppError::Forbidden);
+    }
     let users = users::list(&state.pool).await?;
 
     Ok(Json(users))
@@ -36,8 +41,12 @@ pub async fn list_users(
 
 pub async fn get_user(
     State(state): State<AppState>,
+    user: AuthenticatedUser,
     Path(id): Path<i32>,
 ) -> Result<Json<User>, AppError> {
+    if user.0.role != "admin" {
+        return Err(AppError::Forbidden);
+    }
     let user = users::get(&state.pool, id).await?;
 
     Ok(Json(user))
@@ -45,8 +54,13 @@ pub async fn get_user(
 
 pub async fn create_user(
     State(state): State<AppState>,
+    user: AuthenticatedUser,
     Json(request): Json<CreateUserRequest>,
 ) -> Result<Json<User>, AppError> {
+    if user.0.role != "admin" {
+        return Err(AppError::Forbidden);
+    }
+
     let user = users::create(
         &state.pool,
         &request.name,
@@ -61,9 +75,13 @@ pub async fn create_user(
 
 pub async fn update_user(
     State(state): State<AppState>,
+    user: AuthenticatedUser,
     Path(id): Path<i32>,
     Json(request): Json<UpdateUserRequest>,
 ) -> Result<Json<User>, AppError> {
+    if user.0.role != "admin" {
+        return Err(AppError::Forbidden);
+    }
     let user = users::update(
         &state.pool,
         id,
@@ -79,8 +97,12 @@ pub async fn update_user(
 
 pub async fn deactivate_user(
     State(state): State<AppState>,
+    user: AuthenticatedUser,
     Path(id): Path<i32>,
 ) -> Result<Json<User>, AppError> {
+    if user.0.role != "admin" {
+        return Err(AppError::Forbidden);
+    }
     let user = users::deactivate(
         &state.pool,
         id,

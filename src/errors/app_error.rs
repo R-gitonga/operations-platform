@@ -10,6 +10,7 @@ use serde_json::json;
 #[derive(Debug)]
 pub enum AppError {
     Unauthorized,
+    Forbidden,
     NotFound,
     BadRequest(String),
     Validation(String),
@@ -35,6 +36,7 @@ impl std::fmt::Display for AppError {
             AppError::Multipart(err) => {
                 write!(f, "Multipart error: {}", err)
             }
+            AppError::Forbidden => write!(f, "You do not have permission to perfom this action"),
 
             AppError::Io(err) => write!(f, "IO error: {}", err),
         }
@@ -83,6 +85,14 @@ impl IntoResponse for AppError {
             AppError::BadRequest(message) => (
                 StatusCode::BAD_REQUEST,
                 Json(json!({"error": message})),
+            )
+                .into_response(),
+
+            AppError::Forbidden => (
+                StatusCode::FORBIDDEN,
+                Json(json!({
+                    "error": "You do not have permission to perform this action."
+                })),
             )
                 .into_response(),
 

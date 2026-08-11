@@ -2,6 +2,7 @@ use chrono::Utc;
 use std::collections::HashMap;
 
 use crate::{
+    config::Config,
     database::DbPool,
     errors::app_error::AppError,
     models::line_item::{
@@ -70,6 +71,7 @@ pub fn validate_create_payload(payload: &CreateWsoLineItemRequest) -> Result<(),
 
 pub async fn create(
     pool: &DbPool,
+    config: &Config,
     wso_item_id: i32,
     payload: &CreateWsoLineItemRequest,
     actor: &User,
@@ -84,7 +86,11 @@ pub async fn create(
 
     let created = line_item::create(pool, wso_item_id, payload).await?;
 
-    wso_service::refresh_wso_status(pool, production_item.wso_order_id, actor).await?;
+    wso_service::refresh_wso_status(
+        pool, 
+        config, 
+        production_item.wso_order_id, 
+        actor).await?;
 
     Ok(created)
 }
@@ -99,6 +105,7 @@ pub async fn find_by_id(pool: &DbPool, line_item_id: i32) -> Result<WsoLineItem,
 
 pub async fn update(
     pool: &DbPool,
+    config: &Config,
     line_item_id: i32,
     payload: UpdateWsoLineItemRequest,
     actor: &User,
@@ -138,13 +145,18 @@ pub async fn update(
 
     let updated = line_item::update(pool, &item).await?;
 
-    wso_service::refresh_wso_status(pool, production_item.wso_order_id, actor).await?;
+    wso_service::refresh_wso_status(
+        pool, 
+        config,
+        production_item.wso_order_id, 
+        actor).await?;
 
     Ok(updated)
 }
 
 pub async fn receive(
     pool: &DbPool,
+    config: &Config,
     line_item_id: i32,
     payload: ReceiveLineItemRequest,
     actor: &User,
@@ -187,15 +199,25 @@ pub async fn receive(
 
     let updated = line_item::update(pool, &item).await?;
 
-    wso_service::refresh_wso_status(pool, production_item.wso_order_id, actor).await?;
+    wso_service::refresh_wso_status(
+        pool, 
+        config,
+        production_item.wso_order_id, 
+        actor).await?;
 
-    maybe_notify_product_fully_received(pool, &production_item, &order, actor).await?;
+    maybe_notify_product_fully_received(
+        pool, 
+        config,
+        &production_item, 
+        &order, 
+        actor).await?;
 
     Ok(updated)
 }
 
 async fn maybe_notify_product_fully_received(
     pool: &DbPool,
+    config: &Config,
     production_item: &crate::models::wso_item::WsoItem,
     order: &crate::models::wso::WsoOrder,
     actor: &User,
@@ -238,13 +260,17 @@ async fn maybe_notify_product_fully_received(
         variables,
     };
 
-    notifications::dispatch(pool, context).await?;
+    notifications::dispatch(
+        pool, 
+        config,
+        context).await?;
 
     Ok(())
 }
 
 pub async fn delete(
     pool: &DbPool,
+    config: &Config,
     line_item_id: i32,
     actor: &User,
 ) -> Result<WsoLineItem, AppError> {
@@ -258,7 +284,11 @@ pub async fn delete(
 
     let deleted = line_item::delete(pool, line_item_id).await?;
 
-    wso_service::refresh_wso_status(pool, production_item.wso_order_id, actor).await?;
+    wso_service::refresh_wso_status(
+        pool, 
+        config,
+        production_item.wso_order_id, 
+        actor).await?;
 
     Ok(deleted)
 }

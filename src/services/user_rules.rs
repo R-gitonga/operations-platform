@@ -71,7 +71,7 @@ pub fn ensure_password_valid(
     Ok(())
 }
 
-pub fn ensure_role_not_empty(
+pub fn ensure_valid_role(
     role: &str,
 ) -> Result<(), AppError> {
     if role.trim().is_empty() {
@@ -85,13 +85,27 @@ pub fn ensure_role_not_empty(
     Ok(())
 }
 
+// pub fn ensure_valid_role(
+//     role: &str,
+// ) -> Result<(), AppError> {
+//     match role.trim().to_lowercase().as_str() {
+//         "admin" | "user" => Ok(()),
+
+//         _ => Err(
+//             AppError::Validation(
+//                 "User role must be either 'admin' or 'user'.".into(),
+//             ),
+//         ),
+//     }
+// }
+
 pub fn validate(
     user: &User,
 ) -> Result<(), AppError> {
     ensure_name_not_empty(&user.name)?;
     ensure_email_not_empty(&user.email)?;
     ensure_email_valid(&user.email)?;
-    ensure_role_not_empty(&user.role)?;
+    ensure_valid_role(&user.role)?;
 
     Ok(())
 }

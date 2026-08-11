@@ -7,6 +7,7 @@ use axum::{
 };
 
 use crate::{
+    authenticated_user::AuthenticatedUser,
     app_state::AppState,
     errors::app_error::AppError,
     models::{
@@ -19,6 +20,7 @@ use crate::{
 
 pub async fn get_notification_events(
     State(state): State<AppState>,
+    _user: AuthenticatedUser,
 ) -> Result<Json<Vec<NotificationEvent>>, AppError> {
 
     let events =
@@ -29,6 +31,7 @@ pub async fn get_notification_events(
 
 pub async fn get_notification_settings(
     State(state): State<AppState>,
+    _user: AuthenticatedUser,
 ) -> Result<Json<Vec<NotificationSetting>>, AppError> {
     
     let settings =
@@ -40,7 +43,7 @@ pub async fn get_notification_settings(
 pub async fn update_notification_setting(
 
     State(state): State<AppState>,
-
+    _user: AuthenticatedUser,
     Path(id): Path<i32>,
 
     Json(setting): Json<UpdateNotificationSetting>,

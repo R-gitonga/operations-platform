@@ -25,6 +25,7 @@ use crate::{
 
 pub async fn list_production_stages(
     State(state): State<AppState>,
+    _user: AuthenticatedUser,
 ) -> Result<Json<Vec<ProductionStage>>, AppError> {
 
     let stages =
@@ -35,6 +36,7 @@ pub async fn list_production_stages(
 
 pub async fn get_production_stage(
     State(state): State<AppState>,
+    _user: AuthenticatedUser,
     Path(id): Path<i32>,
 ) -> Result<Json<ProductionStage>, AppError> {
 
@@ -100,6 +102,7 @@ pub async fn deactivate_production_stage(
 
 pub async fn get_stage_history(
     State(state): State<AppState>,
+    _user: AuthenticatedUser,
     Path(wso_item_id): Path<i32>,
 ) -> Result<Json<Vec<WsoStageHistory>>, AppError> {
 
@@ -133,6 +136,7 @@ pub async fn change_stage(
 
 pub async fn get_stage_items(
     State(state): State<AppState>,
+    _user: AuthenticatedUser,
     Path(stage_id): Path<i32>,
 ) -> Result<Json<Vec<ProductionStageItem>>, AppError> {
 

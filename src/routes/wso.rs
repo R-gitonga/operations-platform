@@ -6,43 +6,17 @@ use axum::{
 use crate::{
     app_state::AppState,
     handlers::wso::{
-        cancel_wso,
-        create_wso,
-        get_wso,
-        get_wsos,
-        get_wso_summary,
-        update_wso,
+        cancel_wso, create_wso, get_wso, get_wso_summary, get_wsos, reactivate_wso, update_wso,
         upload_attachment,
-        reactivate_wso,
     },
 };
 
 pub fn routes() -> Router<AppState> {
     Router::new()
-        .route(
-            "/wso",
-            post(create_wso)
-                .get(get_wsos),
-        )
-        .route(
-            "/wso/{id}",
-            get(get_wso)
-                .put(update_wso),
-        )
-        .route(
-            "/wso/{id}/attachment",
-            post(upload_attachment),
-        )
-        .route(
-            "/wso/summary",
-            get(get_wso_summary),
-        )
-        .route(
-            "/wso/{id}/cancel",
-            patch(cancel_wso),
-        )
-        .route(
-            "/wso/{id}/reactivate",
-            post(reactivate_wso),
-        )
+        .route("/wso", post(create_wso).get(get_wsos))
+        .route("/wso/{id}", get(get_wso).put(update_wso))
+        .route("/wso/{id}/attachment", post(upload_attachment))
+        .route("/wso/summary", get(get_wso_summary))
+        .route("/wso/{id}/cancel", patch(cancel_wso))
+        .route("/wso/{id}/reactivate", post(reactivate_wso))
 }

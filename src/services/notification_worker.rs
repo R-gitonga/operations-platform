@@ -1,4 +1,5 @@
 use crate::{
+    config::Config,
     models::email_message::EmailMessage,
     services::{
         email_sender,
@@ -10,6 +11,7 @@ use crate::{
 
 pub async fn process_pending_jobs(
     pool: &DbPool,
+    config: &Config,
 ) -> Result<(), sqlx::Error> {
 
     let jobs = notification_job::find_pending(pool).await?;
@@ -18,6 +20,10 @@ pub async fn process_pending_jobs(
 
         let message = EmailMessage {
 
+            from_name: job.sender_name.clone(),
+
+            from_email: job.sender_email.clone(),
+
             to: job.recipient_email.clone(),
 
             subject: job.subject.clone(),
@@ -25,7 +31,7 @@ pub async fn process_pending_jobs(
             html_body: job.html_body.clone(),
         };
 
-        match email_sender::send(message).await {
+        match email_sender::send(config, message).await {
 
             Ok(_) => {
 

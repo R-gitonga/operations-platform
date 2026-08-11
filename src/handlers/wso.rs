@@ -28,7 +28,13 @@ pub async fn create_wso(
     Json(payload): Json<CreateCompleteWsoRequest>,
 ) -> Result<Json<WsoDetail>, AppError> {
     let created =
-        wso_create_service::create_complete_wso(&state.pool, &payload, &user).await?;
+        wso_create_service::create_complete_wso(
+            &state.config,
+            &state.pool,
+            &payload,
+            &user,
+        )
+        .await?;
 
     Ok(Json(created))
 }
@@ -41,15 +47,12 @@ pub struct ListWsoQuery {
 
 pub async fn get_wsos(
     State(state): State<AppState>,
+    _user: AuthenticatedUser,
     Query(query): Query<ListWsoQuery>,
 ) -> Result<Json<Vec<WsoOrder>>, AppError> {
-
     let wsos = if query.search.is_none() && query.status.is_none() {
-
         wso::find_all(&state.pool).await?
-
     } else {
-
         wso::find_all_filtered(
             &state.pool,
             query.search.as_deref(),
@@ -63,9 +66,9 @@ pub async fn get_wsos(
 
 pub async fn get_wso(
     State(state): State<AppState>,
+    _user: AuthenticatedUser,
     Path(id): Path<i32>,
 ) -> Result<Json<WsoDetail>, AppError> {
-
     let detail =
         wso_service::get_wso_detail(&state.pool, id).await?;
 
@@ -78,7 +81,6 @@ pub async fn update_wso(
     Path(id): Path<i32>,
     Json(payload): Json<UpdateWsoRequest>,
 ) -> Result<Json<WsoOrder>, AppError> {
-
     let mut order =
         wso::find_by_id(&state.pool, id).await?;
 
@@ -117,9 +119,14 @@ pub async fn cancel_wso(
     AuthenticatedUser(user): AuthenticatedUser,
     Path(id): Path<i32>,
 ) -> Result<Json<WsoOrder>, AppError> {
-
     let cancelled =
-        wso_service::cancel(&state.pool, id, &user).await?;
+        wso_service::cancel(
+            &state.pool,
+            &state.config,
+            id,
+            &user,
+        )
+        .await?;
 
     Ok(Json(cancelled))
 }
@@ -129,9 +136,14 @@ pub async fn reactivate_wso(
     AuthenticatedUser(user): AuthenticatedUser,
     Path(id): Path<i32>,
 ) -> Result<Json<WsoOrder>, AppError> {
-
     let order =
-        wso_service::reactivate(&state.pool, id, &user).await?;
+        wso_service::reactivate(
+            &state.pool,
+            &state.config,
+            id,
+            &user,
+        )
+        .await?;
 
     Ok(Json(order))
 }
@@ -142,12 +154,10 @@ pub async fn upload_attachment(
     Path(id): Path<i32>,
     mut multipart: Multipart,
 ) -> Result<Json<WsoOrder>, AppError> {
-
     let mut order =
         wso::find_by_id(&state.pool, id).await?;
 
     while let Some(field) = multipart.next_field().await? {
-
         let file_name = field
             .file_name()
             .map(|s| s.to_string())
@@ -174,8 +184,8 @@ pub async fn upload_attachment(
 
 pub async fn get_wso_summary(
     State(state): State<AppState>,
+    _user: AuthenticatedUser,
 ) -> Result<Json<WsoSummary>, AppError> {
-
     let summary =
         wso_service::get_wso_summary(&state.pool).await?;
 

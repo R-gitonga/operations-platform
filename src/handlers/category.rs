@@ -4,6 +4,7 @@ use axum::{
 };
 
 use crate::{
+    authenticated_user::AuthenticatedUser,
     app_state::AppState,
     errors::app_error::AppError,
     models::category::{
@@ -16,6 +17,7 @@ use crate::{
 
 pub async fn get_categories(
     State(state): State<AppState>,
+    _user: AuthenticatedUser,
 ) -> Result<Json<Vec<Category>>, AppError> {
     let categories = category::find_all(&state.pool).await?;
     Ok(Json(categories))
@@ -23,6 +25,7 @@ pub async fn get_categories(
 
 pub async fn get_category(
     State(state): State<AppState>,
+    _user: AuthenticatedUser,
     Path(id): Path<i32>,
 ) -> Result<Json<Category>, AppError> {
     let category = category::find_by_id(&state.pool, id).await?;
@@ -31,6 +34,7 @@ pub async fn get_category(
 
 pub async fn create_category(
     State(state): State<AppState>,
+    _user: AuthenticatedUser,
     Json(payload): Json<CreateCategoryRequest>,
 ) -> Result<Json<Category>, AppError> {
     let category = category::create(&state.pool, &payload).await?;
@@ -39,6 +43,7 @@ pub async fn create_category(
 
 pub async fn update_category(
     State(state): State<AppState>,
+    _user: AuthenticatedUser,
     Path(id): Path<i32>,
     Json(payload): Json<UpdateCategoryRequest>,
 ) -> Result<Json<Category>, AppError> {
@@ -48,6 +53,7 @@ pub async fn update_category(
 
 pub async fn delete_category(
     State(state): State<AppState>,
+    _user: AuthenticatedUser,
     Path(id): Path<i32>,
 ) -> Result<Json<Category>, AppError> {
     let category = category::delete(&state.pool, id).await?;

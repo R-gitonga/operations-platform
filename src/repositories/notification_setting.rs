@@ -62,7 +62,7 @@ pub async fn update(
     Ok(())
 }
 
-pub async fn  find_by_code(
+pub async fn find_by_code(
     pool: &DbPool,
     code: &str,
 ) -> Result<NotificationSetting, sqlx::Error> {

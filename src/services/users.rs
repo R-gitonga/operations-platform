@@ -45,7 +45,7 @@ pub async fn create(
     user_rules::ensure_email_not_empty(&email)?;
     user_rules::ensure_email_valid(&email)?;
     user_rules::ensure_password_valid(password)?;
-    user_rules::ensure_role_not_empty(&role)?;
+    user_rules::ensure_valid_role(&role)?;
 
     let existing =
         user::find_by_email(
@@ -120,7 +120,7 @@ pub async fn update(
     user_rules::ensure_name_not_empty(&name)?;
     user_rules::ensure_email_not_empty(&email)?;
     user_rules::ensure_email_valid(&email)?;
-    user_rules::ensure_role_not_empty(&role)?;
+    user_rules::ensure_valid_role(&role)?;
 
     let email_owner =
         user::find_by_email(

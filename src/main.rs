@@ -74,6 +74,7 @@ async fn main() {
         config,
     };
     let worker_pool = state.pool.clone();
+    let worker_config = state.config.clone();
 
     //creating route
     let app = Router::new()
@@ -107,6 +108,7 @@ async fn main() {
             if let Err(error) =
                 crate::services::notification_worker::process_pending_jobs(
                     &worker_pool,
+                    &worker_config,
                 )
                 .await
             {

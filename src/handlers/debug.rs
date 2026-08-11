@@ -14,6 +14,7 @@ use crate::{
         test_notification_request::TestNotificationRequest,
     },
     services::notifications,
+
 };
 
 pub async fn send_test_notification(
@@ -50,6 +51,7 @@ pub async fn send_test_notification(
 
     notifications::dispatch(
         &state.pool,
+        &state.config,
         context,
     )
     .await?;

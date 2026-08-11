@@ -3,7 +3,10 @@ use axum::{
     Router,
 };
 
-use crate::{app_state::AppState, handlers::notification_recipient};
+use crate::{
+    app_state::AppState,
+    handlers::notification_recipient,
+};
 
 pub fn routes() -> Router<AppState> {
     Router::new()

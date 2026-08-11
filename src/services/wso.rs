@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use sqlx::Row;
 
 use crate::{
+    config::Config,
     database::DbPool,
     errors::app_error::AppError,
     models::{
@@ -207,6 +208,7 @@ pub async fn get_wso_summary(
 
 pub async fn cancel(
     pool: &DbPool,
+    config: &Config,
     id: i32,
     actor: &User,
 ) -> Result<WsoOrder, AppError> {
@@ -258,6 +260,7 @@ pub async fn cancel(
 
     notifications::dispatch(
         pool,
+        config,
         context,
     )
     .await?;
@@ -267,6 +270,7 @@ pub async fn cancel(
 
 pub async fn reactivate(
     pool: &DbPool,
+    config: &Config,
     id: i32,
     actor: &User,
 ) -> Result<WsoOrder, AppError> {
@@ -319,6 +323,7 @@ pub async fn reactivate(
         if let Err(error) =
         notifications::dispatch(
             pool,
+            config,
             context,
         )
         .await
@@ -334,6 +339,7 @@ pub async fn reactivate(
 
 pub async fn refresh_wso_status(
     pool: &DbPool,
+    config: &Config,
     wso_id: i32,
     actor: &User,
 ) -> Result<(), AppError> {
@@ -428,6 +434,7 @@ pub async fn refresh_wso_status(
 
         notifications::dispatch(
             pool,
+            config,
             context,
         )
         .await

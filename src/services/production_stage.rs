@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
+    config::Config,
     database::DbPool,
     errors::app_error::AppError,
     models::{
@@ -195,6 +196,7 @@ pub async fn get_stage_items(
 
 pub async fn get_attention_required_items(
     pool: &DbPool,
+    config: &Config,
 ) -> Result<Vec<AttentionRequiredItem>, AppError> {
 
     let items =
@@ -205,6 +207,7 @@ pub async fn get_attention_required_items(
 
     notify_attention_required_items(
         pool,
+        config,
         &items,
     )
     .await?;
@@ -214,6 +217,7 @@ pub async fn get_attention_required_items(
 
 async fn notify_attention_required_items(
     pool: &DbPool,
+    config: &Config,
     items: &[AttentionRequiredItem],
 ) -> Result<(), AppError> {
 
@@ -333,6 +337,7 @@ async fn notify_attention_required_items(
 
         notifications::dispatch(
             pool,
+            config,
             context,
         )
         .await?;

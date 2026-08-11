@@ -17,6 +17,10 @@ pub async fn enqueue(
 
             notification_log_id,
 
+            sender_name,
+
+            sender_email,
+
             recipient_email,
 
             subject,
@@ -25,12 +29,14 @@ pub async fn enqueue(
 
         )
 
-        VALUES ($1,$2,$3,$4)
+        VALUES ($1,$2,$3,$4, $5, #6)
 
         RETURNING *
         "#
     )
     .bind(request.notification_log_id)
+    .bind(request.sender_name)
+    .bind(request.sender_email)
     .bind(request.recipient_email)
     .bind(request.subject)
     .bind(request.html_body)

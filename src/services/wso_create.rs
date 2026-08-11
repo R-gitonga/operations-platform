@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{
+    config::Config,
     database::DbPool,
     errors::app_error::AppError,
     models::{
@@ -28,6 +29,7 @@ use crate::{
 use super::line_item as line_item_service;
 
 pub async fn create_complete_wso(
+    config: &Config,
     pool: &DbPool,
     payload: &CreateCompleteWsoRequest,
     actor: &User,
@@ -206,6 +208,7 @@ pub async fn create_complete_wso(
     if let Err(error) =
         notifications::dispatch(
             pool,
+            config,
             context
         ).await
         {
