@@ -59,6 +59,15 @@ pub struct RecentActivity {
 }
 
 #[derive(Debug, Serialize)]
+pub struct RecentActivityPage {
+    pub items: Vec<RecentActivity>,
+    pub page: i64,
+    pub page_size: i64,
+    pub total: i64,
+    pub total_pages: i64,
+}
+
+#[derive(Debug, Serialize)]
 pub struct RecentOrder {
     pub id: i32,
     pub wso_number: String,
@@ -80,7 +89,7 @@ pub struct DashboardSummary {
 
     pub production_stages: Vec<ProductionStageSummary>,
 
-    pub recent_activity: Vec<RecentActivity>,
+    pub recent_activity: RecentActivityPage,
 
     pub recent_orders: Vec<RecentOrder>,
 

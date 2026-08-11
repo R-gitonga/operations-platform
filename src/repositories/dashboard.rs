@@ -6,6 +6,7 @@ use crate::{
         OutstandingOrder,
         ProductionStageSummary,
         RecentActivity,
+        RecentActivityPage,
         RecentOrder,
     },
 };
@@ -196,63 +197,99 @@ pub async fn get_outstanding_orders(
 
 pub async fn get_recent_activity(
     pool: &DbPool,
-) -> Result<Vec<RecentActivity>, sqlx::Error> {
+    page: i64,
+    page_size: i64,
+) -> Result<RecentActivityPage, sqlx::Error> {
 
-    Ok(
-        sqlx::query(
-            r#"
-            SELECT
-                h.changed_at,
+    let total: i64 = sqlx::query_scalar(
+        r#"
+        SELECT COUNT(*)
+        FROM wso_stage_history h
 
-                w.id AS wso_id,
-                w.wso_number,
+        JOIN wso_items wi
+            ON wi.id = h.wso_item_id
 
-                wi.id AS wso_item_id,
-                wi.description,
+        JOIN wso_orders w
+            ON w.id = wi.wso_order_id
 
-                ps.display_name AS stage_name,
-
-                h.changed_by,
-                h.notes
-
-            FROM wso_stage_history h
-
-            JOIN wso_items wi
-                ON wi.id = h.wso_item_id
-
-            JOIN wso_orders w
-                ON w.id = wi.wso_order_id
-
-            JOIN production_stages ps
-                ON ps.id = h.production_stage_id
-
-            ORDER BY h.changed_at DESC
-
-            LIMIT 20
-            "#
-        )
-        .fetch_all(pool)
-        .await?
-        .into_iter()
-        .map(|row| RecentActivity {
-
-            changed_at: row.get("changed_at"),
-
-            wso_id: row.get("wso_id"),
-
-            wso_number: row.get("wso_number"),
-
-            wso_item_id: row.get("wso_item_id"),
-
-            description: row.get("description"),
-
-            stage_name: row.get("stage_name"),
-
-            changed_by: row.get("changed_by"),
-
-            notes: row.get("notes"),
-
-        })
-        .collect(),
+        JOIN production_stages ps
+            ON ps.id = h.production_stage_id
+        "#
     )
+    .fetch_one(pool)
+    .await?;
+
+    let offset = (page - 1) * page_size;
+
+    let items = sqlx::query(
+        r#"
+        SELECT
+            h.changed_at,
+
+            w.id AS wso_id,
+            w.wso_number,
+
+            wi.id AS wso_item_id,
+            wi.description,
+
+            ps.display_name AS stage_name,
+
+            h.changed_by,
+            h.notes
+
+        FROM wso_stage_history h
+
+        JOIN wso_items wi
+            ON wi.id = h.wso_item_id
+
+        JOIN wso_orders w
+            ON w.id = wi.wso_order_id
+
+        JOIN production_stages ps
+            ON ps.id = h.production_stage_id
+
+        ORDER BY h.changed_at DESC
+
+        LIMIT $1
+        OFFSET $2
+        "#
+    )
+    .bind(page_size)
+    .bind(offset)
+    .fetch_all(pool)
+    .await?
+    .into_iter()
+    .map(|row| RecentActivity {
+
+        changed_at: row.get("changed_at"),
+
+        wso_id: row.get("wso_id"),
+
+        wso_number: row.get("wso_number"),
+
+        wso_item_id: row.get("wso_item_id"),
+
+        description: row.get("description"),
+
+        stage_name: row.get("stage_name"),
+
+        changed_by: row.get("changed_by"),
+
+        notes: row.get("notes"),
+    })
+    .collect::<Vec<RecentActivity>>();
+
+    let total_pages = if total == 0 {
+        0
+    } else {
+        (total + page_size - 1) / page_size
+    };
+
+    Ok(RecentActivityPage {
+        items,
+        page,
+        page_size,
+        total,
+        total_pages,
+    })
 }
