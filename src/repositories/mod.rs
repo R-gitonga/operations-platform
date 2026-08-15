@@ -12,3 +12,6 @@ pub mod wso_item;
 pub mod dashboard;
 pub mod attention_required_notification;
 pub mod user;
+pub mod partial_receiving_tracking;
+pub mod partial_receiving_settings;
+pub mod partial_receiving_attention;

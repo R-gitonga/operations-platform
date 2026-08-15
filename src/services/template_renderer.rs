@@ -17,6 +17,10 @@ pub fn render(context: &NotificationContext) -> Result<RenderedEmail, String> {
 
         "product_fully_received" => templates::product_fully_received::render(context),
 
+        "partial_receiving_attention" => {
+            templates::partial_receiving_attention::render(context)
+        }
+
         _ => Err(format!(
             "No template registered for '{}'",
             context.event_code,

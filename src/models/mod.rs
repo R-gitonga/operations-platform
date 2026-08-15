@@ -28,3 +28,7 @@ pub mod wso_stage_history;
 pub mod wso_summary;
 pub mod user;
 pub mod auth;
+pub mod partial_receiving_tracking;
+pub mod partial_receiving_settings;
+pub mod partial_receiving_attention_item;
+pub mod update_partial_receiving_settings;

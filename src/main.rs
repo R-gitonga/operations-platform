@@ -32,6 +32,7 @@ use routes::{
     production_stage::routes as production_Stage_route,
     auth::routes as auth_routes,
     users::routes as users_routes,
+    partial_receiving_attention::routes as partial_receiving_attention_route,
 };
 
 use tower_http::services::ServeDir;
@@ -88,6 +89,7 @@ async fn main() {
         .merge(production_Stage_route())
         .merge(auth_routes())
         .merge(users_routes())
+        .merge(partial_receiving_attention_route())
         .nest_service(
             "/uploads",
             ServeDir::new("uploads"),

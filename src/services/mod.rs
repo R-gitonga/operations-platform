@@ -21,3 +21,7 @@ pub mod password;
 pub mod user_rules;
 pub mod auth;
 pub mod auth_token;
+pub mod partial_receiving;
+pub mod partial_receiving_attention;
+pub mod partial_receiving_Attention;
+pub mod partial_receiving_settings;

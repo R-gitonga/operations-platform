@@ -77,7 +77,9 @@ pub async fn dispatch(
      * system notification mailbox.
      */
     let (sender_name, sender_email) =
-    if context.event_code == "attention_required" {
+    if context.event_code == "attention_required"
+            || context.event_code == "partial_receiving_attention"
+    {
         (
             config.system_notification_name.clone(),
             config.system_notification_email.clone(),

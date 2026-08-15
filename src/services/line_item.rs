@@ -86,11 +86,7 @@ pub async fn create(
 
     let created = line_item::create(pool, wso_item_id, payload).await?;
 
-    wso_service::refresh_wso_status(
-        pool, 
-        config, 
-        production_item.wso_order_id, 
-        actor).await?;
+    wso_service::refresh_wso_status(pool, config, production_item.wso_order_id, actor).await?;
 
     Ok(created)
 }
@@ -145,11 +141,7 @@ pub async fn update(
 
     let updated = line_item::update(pool, &item).await?;
 
-    wso_service::refresh_wso_status(
-        pool, 
-        config,
-        production_item.wso_order_id, 
-        actor).await?;
+    wso_service::refresh_wso_status(pool, config, production_item.wso_order_id, actor).await?;
 
     Ok(updated)
 }
@@ -199,18 +191,16 @@ pub async fn receive(
 
     let updated = line_item::update(pool, &item).await?;
 
-    wso_service::refresh_wso_status(
+    crate::services::partial_receiving::sync_tracking(
         pool, 
-        config,
-        production_item.wso_order_id, 
-        actor).await?;
+        production_item.id
+    )
+    .await?;
 
-    maybe_notify_product_fully_received(
-        pool, 
-        config,
-        &production_item, 
-        &order, 
-        actor).await?;
+    
+    wso_service::refresh_wso_status(pool, config, production_item.wso_order_id, actor).await?;
+
+    maybe_notify_product_fully_received(pool, config, &production_item, &order, actor).await?;
 
     Ok(updated)
 }
@@ -260,10 +250,7 @@ async fn maybe_notify_product_fully_received(
         variables,
     };
 
-    notifications::dispatch(
-        pool, 
-        config,
-        context).await?;
+    notifications::dispatch(pool, config, context).await?;
 
     Ok(())
 }
@@ -284,11 +271,7 @@ pub async fn delete(
 
     let deleted = line_item::delete(pool, line_item_id).await?;
 
-    wso_service::refresh_wso_status(
-        pool, 
-        config,
-        production_item.wso_order_id, 
-        actor).await?;
+    wso_service::refresh_wso_status(pool, config, production_item.wso_order_id, actor).await?;
 
     Ok(deleted)
 }

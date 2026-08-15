@@ -8,3 +8,4 @@ pub mod debug;
 pub mod production_stage;
 pub mod auth;
 pub mod users;
+pub mod partial_receiving_attention;
