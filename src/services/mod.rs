@@ -23,5 +23,7 @@ pub mod auth;
 pub mod auth_token;
 pub mod partial_receiving;
 pub mod partial_receiving_attention;
-pub mod partial_receiving_Attention;
 pub mod partial_receiving_settings;
+pub mod branding_type;
+pub mod branding_location;
+pub mod wso_item_branding;

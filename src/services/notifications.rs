@@ -67,29 +67,26 @@ pub async fn dispatch(
             })?;
 
     /*
-     * Determine the sender based on the origin of
-     * the notification.
+     * Notifications are always sent from the configured
+     * Operations Platform mailbox.
      *
-     * User-driven events are sent using the email
-     * address of the user who performed the action.
+     * The actor remains separate from the sender:
      *
-     * System-driven events use the configured
-     * system notification mailbox.
+     *   actor_name / actor_email
+     *       = user who performed the action
+     *
+     *   system_notification_name / system_notification_email
+     *       = mailbox that sends the notification
+     *
+     * Actor information remains available through
+     * NotificationContext and can be rendered into the
+     * notification template.
      */
-    let (sender_name, sender_email) =
-    if context.event_code == "attention_required"
-            || context.event_code == "partial_receiving_attention"
-    {
-        (
-            config.system_notification_name.clone(),
-            config.system_notification_email.clone(),
-        )
-    } else {
-        (
-            context.actor_name.clone(),
-            context.actor_email.clone(),
-        )
-    };
+    let sender_name =
+        config.system_notification_name.clone();
+
+    let sender_email =
+        config.system_notification_email.clone();
 
     for recipient in dispatch.recipients {
         let log =

@@ -51,11 +51,21 @@ pub struct RecentActivity {
 
     pub description: String,
 
+    // "stage_change" | "partial_received"
+    pub event_type: String,
+
     pub stage_name: String,
 
     pub changed_by: Option<String>,
 
     pub notes: Option<String>,
+
+    // Only populated for event_type = "partial_received".
+    pub quantity_received: Option<i32>,
+
+    pub total_raised: Option<i32>,
+
+    pub balance: Option<i32>,
 }
 
 #[derive(Debug, Serialize)]

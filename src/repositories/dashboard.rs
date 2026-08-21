@@ -201,20 +201,76 @@ pub async fn get_recent_activity(
     page_size: i64,
 ) -> Result<RecentActivityPage, sqlx::Error> {
 
+    const ACTIVITY_SOURCE: &str = r#"
+        (
+            SELECT
+                h.changed_at,
+
+                w.id AS wso_id,
+                w.wso_number,
+
+                wi.id AS wso_item_id,
+                wi.description,
+
+                'stage_change' AS event_type,
+
+                ps.display_name AS stage_name,
+
+                h.changed_by,
+                h.notes,
+
+                NULL::INTEGER AS quantity_received,
+                NULL::INTEGER AS total_raised,
+                NULL::INTEGER AS balance
+
+            FROM wso_stage_history h
+
+            JOIN wso_items wi
+                ON wi.id = h.wso_item_id
+
+            JOIN wso_orders w
+                ON w.id = wi.wso_order_id
+
+            JOIN production_stages ps
+                ON ps.id = h.production_stage_id
+
+            UNION ALL
+
+            SELECT
+                r.received_at AS changed_at,
+
+                w.id AS wso_id,
+                w.wso_number,
+
+                wi.id AS wso_item_id,
+                wi.description,
+
+                'partial_received' AS event_type,
+
+                'Partially Received' AS stage_name,
+
+                r.received_by AS changed_by,
+                NULL::TEXT AS notes,
+
+                r.quantity_received,
+                r.total_raised,
+                r.balance
+
+            FROM wso_partial_receipt_events r
+
+            JOIN wso_items wi
+                ON wi.id = r.wso_item_id
+
+            JOIN wso_orders w
+                ON w.id = wi.wso_order_id
+        ) activity
+    "#;
+
     let total: i64 = sqlx::query_scalar(
-        r#"
-        SELECT COUNT(*)
-        FROM wso_stage_history h
-
-        JOIN wso_items wi
-            ON wi.id = h.wso_item_id
-
-        JOIN wso_orders w
-            ON w.id = wi.wso_order_id
-
-        JOIN production_stages ps
-            ON ps.id = h.production_stage_id
-        "#
+        &format!(
+            "SELECT COUNT(*) FROM {}",
+            ACTIVITY_SOURCE
+        )
     )
     .fetch_one(pool)
     .await?;
@@ -222,37 +278,16 @@ pub async fn get_recent_activity(
     let offset = (page - 1) * page_size;
 
     let items = sqlx::query(
-        r#"
-        SELECT
-            h.changed_at,
-
-            w.id AS wso_id,
-            w.wso_number,
-
-            wi.id AS wso_item_id,
-            wi.description,
-
-            ps.display_name AS stage_name,
-
-            h.changed_by,
-            h.notes
-
-        FROM wso_stage_history h
-
-        JOIN wso_items wi
-            ON wi.id = h.wso_item_id
-
-        JOIN wso_orders w
-            ON w.id = wi.wso_order_id
-
-        JOIN production_stages ps
-            ON ps.id = h.production_stage_id
-
-        ORDER BY h.changed_at DESC
-
-        LIMIT $1
-        OFFSET $2
-        "#
+        &format!(
+            r#"
+            SELECT *
+            FROM {}
+            ORDER BY changed_at DESC
+            LIMIT $1
+            OFFSET $2
+            "#,
+            ACTIVITY_SOURCE
+        )
     )
     .bind(page_size)
     .bind(offset)
@@ -271,11 +306,19 @@ pub async fn get_recent_activity(
 
         description: row.get("description"),
 
+        event_type: row.get("event_type"),
+
         stage_name: row.get("stage_name"),
 
         changed_by: row.get("changed_by"),
 
         notes: row.get("notes"),
+
+        quantity_received: row.get("quantity_received"),
+
+        total_raised: row.get("total_raised"),
+
+        balance: row.get("balance"),
     })
     .collect::<Vec<RecentActivity>>();
 

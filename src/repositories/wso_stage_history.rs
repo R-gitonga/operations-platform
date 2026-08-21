@@ -82,20 +82,66 @@ pub async fn find_by_wso_item(
     let rows = sqlx::query(
         r#"
         SELECT
-            h.id,
+            ('stage-' || h.id) AS id,
+
             h.wso_item_id,
+
+            'stage_change' AS event_type,
+
             h.production_stage_id,
+
             s.display_name AS stage_name,
+
+            s.color AS stage_color,
+
             h.notes,
+
+            NULL::INTEGER AS quantity_received,
+            NULL::INTEGER AS total_raised,
+            NULL::INTEGER AS balance,
+
             h.changed_by,
             h.changed_at
+
         FROM wso_stage_history h
+
         JOIN production_stages s
             ON s.id = h.production_stage_id
+
         WHERE h.wso_item_id = $1
-        ORDER BY h.changed_at DESC
+
+        UNION ALL
+
+        SELECT
+            ('receipt-' || r.id) AS id,
+
+            r.wso_item_id,
+
+            'partial_received' AS event_type,
+
+            NULL::INTEGER AS production_stage_id,
+
+            'Partially Received' AS stage_name,
+
+            '#f59e0b' AS stage_color,
+
+            NULL::TEXT AS notes,
+
+            r.quantity_received,
+            r.total_raised,
+            r.balance,
+
+            r.received_by AS changed_by,
+            r.received_at AS changed_at
+
+        FROM wso_partial_receipt_events r
+
+        WHERE r.wso_item_id = $1
+
+        ORDER BY changed_at DESC
         "#,
     )
+    .bind(wso_item_id)
     .bind(wso_item_id)
     .fetch_all(pool)
     .await?;
@@ -107,11 +153,21 @@ pub async fn find_by_wso_item(
 
             wso_item_id: row.get("wso_item_id"),
 
+            event_type: row.get("event_type"),
+
             production_stage_id: row.get("production_stage_id"),
 
             stage_name: row.get("stage_name"),
 
+            stage_color: row.get("stage_color"),
+
             notes: row.get("notes"),
+
+            quantity_received: row.get("quantity_received"),
+
+            total_raised: row.get("total_raised"),
+
+            balance: row.get("balance"),
 
             changed_by: row.get("changed_by"),
 

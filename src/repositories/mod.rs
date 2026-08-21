@@ -15,3 +15,7 @@ pub mod user;
 pub mod partial_receiving_tracking;
 pub mod partial_receiving_settings;
 pub mod partial_receiving_attention;
+pub mod branding_type;
+pub mod branding_location;
+pub mod wso_item_branding;
+pub mod wso_partial_receipt_event;

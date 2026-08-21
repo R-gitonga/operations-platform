@@ -1,12 +1,17 @@
+// src/models/wso_item_detail.rs
+
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 
-use chrono::{DateTime, NaiveDate, Utc};
-
-use crate::models::line_item::WsoLineItem;
+use crate::{
+    models::{
+        line_item::WsoLineItem,
+        wso_item_branding_detail::WsoItemBrandingDetail,
+    },
+};
 
 #[derive(Debug, Serialize)]
 pub struct WsoItemDetail {
-
     pub id: i32,
 
     pub category_id: Option<i32>,
@@ -42,4 +47,6 @@ pub struct WsoItemDetail {
     pub total_balance: i32,
 
     pub line_items: Vec<WsoLineItem>,
+
+    pub branding: Vec<WsoItemBrandingDetail>,
 }

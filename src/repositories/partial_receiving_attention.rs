@@ -1,8 +1,6 @@
 use crate::{
     database::DbPool,
-    errors::app_error::AppError,
     models::partial_receiving_attention_item::PartialReceivingAttentionItem,
-    repositories::partial_receiving_tracking,
 };
 
 pub async fn find_attention_required(
@@ -107,15 +105,4 @@ pub async fn find_attention_required(
     )
     .fetch_all(pool)
     .await
-}
-
-pub async fn get_attention_required_items(
-    pool: &DbPool,
-) -> Result<Vec<PartialReceivingAttentionItem>, AppError> {
-    Ok(
-        partial_receiving_tracking::find_attention_required(
-            pool
-        )
-        .await?
-    )
 }

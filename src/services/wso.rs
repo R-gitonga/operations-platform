@@ -18,6 +18,7 @@ use crate::{
         line_item,
         wso,
         wso_item,
+        wso_item_branding,
     },
     services::{
         notifications,
@@ -46,6 +47,13 @@ pub async fn get_wso_detail(
 
         let line_items =
             line_item::find_by_item(pool, item.id).await?;
+
+        let branding =
+        wso_item_branding::find_details_by_wso_item(
+            pool,
+            item.id,
+        )
+        .await?;
 
         let qty_raised: i32 =
             line_items.iter()
@@ -107,6 +115,8 @@ pub async fn get_wso_detail(
                 total_balance: balance,
 
                 line_items,
+
+                branding,
             }
         );
     }

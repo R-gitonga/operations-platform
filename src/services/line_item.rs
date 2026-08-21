@@ -191,6 +191,18 @@ pub async fn receive(
 
     let updated = line_item::update(pool, &item).await?;
 
+    crate::repositories::wso_partial_receipt_event::create(
+        pool,
+        production_item.id,
+        updated.id,
+        payload.quantity,
+        updated.qty_raised,
+        updated.qty_received,
+        updated.balance,
+        &actor.name,
+    )
+    .await?;
+
     crate::services::partial_receiving::sync_tracking(
         pool, 
         production_item.id

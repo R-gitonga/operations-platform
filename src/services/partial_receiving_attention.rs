@@ -9,6 +9,7 @@ use crate::{
         notification_context::NotificationContext,
         partial_receiving_attention_item::PartialReceivingAttentionItem,
     },
+    repositories::partial_receiving_attention,
     repositories::partial_receiving_tracking,
     services::notifications,
 };
@@ -18,7 +19,7 @@ pub async fn get_attention_required_items(
     config: &Config,
 ) -> Result<Vec<PartialReceivingAttentionItem>, AppError> {
     let items =
-        partial_receiving_tracking::find_attention_required(pool)
+        partial_receiving_attention::find_attention_required(pool)
             .await?;
 
     for item in &items {
