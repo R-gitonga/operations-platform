@@ -2,7 +2,11 @@ use sqlx::{query_as, Postgres, Transaction};
 
 use crate::{
     database::DbPool,
-    models::{create_wso_item::CreateWsoItemRequest, wso_item::WsoItem},
+    models::{
+        create_wso_item::CreateWsoItemRequest,
+        wso_item::WsoItem,
+        wso_item_by_category::WsoItemByCategory,
+    },
 };
 const WSO_ITEM_SELECT: &str = r#"
 SELECT
@@ -223,4 +227,69 @@ pub async fn delete(pool: &DbPool, id: i32) -> Result<(), sqlx::Error> {
         .await?;
 
     Ok(())
+}
+
+pub async fn find_by_category(
+    pool: &DbPool,
+    category_id: i32,
+) -> Result<Vec<WsoItemByCategory>, sqlx::Error> {
+    query_as::<_, WsoItemByCategory>(
+        r#"
+        SELECT
+            w.id AS wso_id,
+            w.wso_number,
+            w.status AS wso_status,
+
+            wi.id AS wso_item_id,
+            wi.description,
+            wi.design_code,
+            wi.fabric_code,
+
+            c.id AS category_id,
+            c.name AS category_name,
+
+            ps.display_name AS current_stage_name,
+            ps.color AS current_stage_color,
+
+            COALESCE(totals.total_qty_raised, 0) AS total_qty_raised,
+            COALESCE(totals.total_qty_received, 0) AS total_qty_received,
+            COALESCE(totals.total_balance, 0) AS total_balance
+
+        FROM wso_items wi
+
+        JOIN wso_orders w
+            ON w.id = wi.wso_order_id
+
+        JOIN categories c
+            ON c.id = wi.category_id
+
+        LEFT JOIN production_stages ps
+            ON ps.id = wi.current_stage_id
+
+        LEFT JOIN LATERAL (
+            SELECT
+                COALESCE(SUM(li.qty_raised), 0)::INTEGER
+                    AS total_qty_raised,
+
+                COALESCE(SUM(li.qty_received), 0)::INTEGER
+                    AS total_qty_received,
+
+                COALESCE(SUM(li.qty_raised - li.qty_received), 0)::INTEGER
+                    AS total_balance
+
+            FROM wso_line_items li
+
+            WHERE li.wso_item_id = wi.id
+        ) totals ON TRUE
+
+        WHERE wi.category_id = $1
+
+        ORDER BY
+            w.wso_number,
+            wi.id
+        "#,
+    )
+    .bind(category_id)
+    .fetch_all(pool)
+    .await
 }

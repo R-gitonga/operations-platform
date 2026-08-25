@@ -7,10 +7,13 @@ use crate::{
     authenticated_user::AuthenticatedUser,
     app_state::AppState,
     errors::app_error::AppError,
-    models::category::{
-        Category,
-        CreateCategoryRequest,
-        UpdateCategoryRequest,
+    models::{
+        category::{
+            Category,
+            CreateCategoryRequest,
+            UpdateCategoryRequest,
+        },
+        wso_item_by_category::WsoItemByCategory,
     },
     services::category,
 };
@@ -58,4 +61,15 @@ pub async fn delete_category(
 ) -> Result<Json<Category>, AppError> {
     let category = category::delete(&state.pool, id).await?;
     Ok(Json(category))
+}
+
+pub async fn get_category_items(
+    State(state): State<AppState>,
+    _user: AuthenticatedUser,
+    Path(id): Path<i32>,
+) -> Result<Json<Vec<WsoItemByCategory>>, AppError> {
+    let items =
+        category::find_items_by_category(&state.pool, id).await?;
+
+    Ok(Json(items))
 }

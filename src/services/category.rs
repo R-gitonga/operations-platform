@@ -1,12 +1,15 @@
 use crate::{
     database::DbPool,
     errors::app_error::AppError,
-    models::category::{
-        Category,
-        CreateCategoryRequest,
-        UpdateCategoryRequest,
+    models::{
+        category::{
+            Category,
+            CreateCategoryRequest,
+            UpdateCategoryRequest,
+        },
+        wso_item_by_category::WsoItemByCategory,
     },
-    repositories::category,
+    repositories::{category, wso_item},
 };
 
 fn validate_name(name: &str) -> Result<(), AppError> {
@@ -46,4 +49,11 @@ pub async fn update(
 
 pub async fn delete(pool: &DbPool, id: i32) -> Result<Category, AppError> {
     Ok(category::delete(pool, id).await?)
+}
+
+pub async fn find_items_by_category(
+    pool: &DbPool,
+    category_id: i32,
+) -> Result<Vec<WsoItemByCategory>, AppError> {
+    Ok(wso_item::find_by_category(pool, category_id).await?)
 }

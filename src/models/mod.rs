@@ -42,3 +42,4 @@ pub mod update_branding_type_request;
 pub mod create_branding_location_request;
 pub mod update_branding_location_request;
 pub mod wso_partial_receipt_event;
+pub mod wso_item_by_category;
