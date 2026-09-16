@@ -597,6 +597,9 @@ SMTP_FROM=sender@example.com
 
 SYSTEM_NOTIFICATION_NAME=Operations Platform
 SYSTEM_NOTIFICATION_EMAIL=sender@example.com
+
+# URL users open in their browser; used in password-reset emails.
+FRONTEND_BASE_URL=http://localhost:5173
 ```
 
 The sender service constructs HTML emails and submits them through the configured SMTP server.

@@ -34,7 +34,12 @@ use routes::{
     users::routes as users_routes,
     partial_receiving_attention::routes as partial_receiving_attention_route,
     branding::routes as branding_route,
-    wso_item_branding::routes as wso_item_branding_route
+    wso_item_branding::routes as wso_item_branding_route,
+    supplier::routes as supplier_route,
+    purchase_order::routes as purchase_order_route,
+    po_line_item::routes as po_line_item_route,
+    po_receipt::routes as po_receipt_route,
+    po_defect::routes as po_defect_route,
 };
 
 use tower_http::services::ServeDir;
@@ -94,6 +99,11 @@ async fn main() {
         .merge(partial_receiving_attention_route())
         .merge(branding_route())
         .merge(wso_item_branding_route())
+        .merge(supplier_route())
+        .merge(purchase_order_route())
+        .merge(po_line_item_route())
+        .merge(po_receipt_route())
+        .merge(po_defect_route())
         .nest_service(
             "/uploads",
             ServeDir::new("uploads"),

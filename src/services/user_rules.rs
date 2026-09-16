@@ -60,10 +60,10 @@ pub fn ensure_password_valid(
         );
     }
 
-    if password.chars().count() < 8 {
+    if password.chars().count() < 4 {
         return Err(
             AppError::Validation(
-                "Password must be at least 8 characters long.".into(),
+                "Password must be at least 4 characters long.".into(),
             ),
         );
     }

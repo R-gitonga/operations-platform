@@ -6,8 +6,13 @@ use crate::{
     app_state::AppState,
     authenticated_user::AuthenticatedUser,
     errors::app_error::AppError,
-    models::auth::{LoginRequest, LoginResponse},
-    services::{auth, auth_token},
+    models::auth::{
+        ForgotPasswordRequest,
+        LoginRequest,
+        LoginResponse,
+        ResetPasswordRequest,
+    },
+    services::{auth, auth_token, password_reset},
 };
 
 pub async fn me(AuthenticatedUser(user): AuthenticatedUser) -> Json<LoginResponse> {
@@ -62,4 +67,26 @@ pub async fn login(
             role: user.role,
         }),
     ))
+}
+
+pub async fn forgot_password(
+    State(state): State<AppState>,
+    Json(request): Json<ForgotPasswordRequest>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    password_reset::request(&state.pool, &state.config, &request.email).await?;
+
+    Ok(Json(json!({
+        "message": "If an active account uses that email address, a password reset link has been sent."
+    })))
+}
+
+pub async fn reset_password(
+    State(state): State<AppState>,
+    Json(request): Json<ResetPasswordRequest>,
+) -> Result<Json<serde_json::Value>, AppError> {
+    password_reset::reset(&state.pool, &request.token, &request.password).await?;
+
+    Ok(Json(json!({
+        "message": "Your password has been reset. You can now sign in."
+    })))
 }

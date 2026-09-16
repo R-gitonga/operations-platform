@@ -16,4 +16,5 @@ pub struct PartialReceivingAttentionItem {
     pub elapsed_days: i64,
     pub overdue_days: i64,
     pub outstanding_quantity: i32,
+    pub notification_sent_at: Option<DateTime<Utc>>,
 }

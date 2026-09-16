@@ -13,3 +13,14 @@ pub struct LoginResponse {
     pub display_name: String,
     pub role: String,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct ForgotPasswordRequest {
+    pub email: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ResetPasswordRequest {
+    pub token: String,
+    pub password: String,
+}

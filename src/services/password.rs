@@ -37,3 +37,10 @@ pub fn verify_password(
             .is_ok()
     )
 }
+
+pub fn generate_reset_token() -> String {
+    SaltString::generate(&mut OsRng)
+        .to_string()
+        .replace('+', "-")
+        .replace('/', "_")
+}

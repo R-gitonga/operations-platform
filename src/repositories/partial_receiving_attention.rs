@@ -56,7 +56,9 @@ pub async fn find_attention_required(
                     WHERE wli.wso_item_id = wi.id
                 ),
                 0
-            ) AS outstanding_quantity
+            )::INTEGER AS outstanding_quantity,
+
+            prt.notification_sent_at
 
         FROM partial_receiving_tracking prt
 
@@ -70,7 +72,7 @@ pub async fn find_attention_required(
 
         WHERE prt.resolved_at IS NULL
 
-          AND LOWER(wo.status) = 'active'
+          AND LOWER(wo.status) <> 'cancelled'
 
           AND prs.attention_after_days <=
               FLOOR(

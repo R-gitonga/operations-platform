@@ -15,6 +15,7 @@ pub struct Config {
 
     pub system_notification_name: String,
     pub system_notification_email: String,
+    pub frontend_base_url: String,
 }
 
 impl Config {
@@ -104,6 +105,15 @@ impl Config {
             ));
         }
 
+        let frontend_base_url = env::var("FRONTEND_BASE_URL")
+            .unwrap_or_else(|_| "http://localhost:5173".to_string());
+
+        if frontend_base_url.trim().is_empty() {
+            return Err(AppError::Validation(
+                "FRONTEND_BASE_URL cannot be empty.".into(),
+            ));
+        }
+
         // ---------------------------------------------------------
         // Final configuration
         // ---------------------------------------------------------
@@ -119,6 +129,7 @@ impl Config {
             smtp_from,
             system_notification_name,
             system_notification_email,
+            frontend_base_url,
         })
     }
 }

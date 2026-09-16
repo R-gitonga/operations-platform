@@ -23,6 +23,11 @@ pub async fn get_attention_required_items(
             .await?;
 
     for item in &items {
+
+        if item.notification_sent_at.is_some() {
+            continue;
+        }
+
         let mut variables = HashMap::new();
 
         variables.insert(

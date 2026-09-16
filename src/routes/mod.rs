@@ -11,3 +11,8 @@ pub mod users;
 pub mod partial_receiving_attention;
 pub mod branding;
 pub mod wso_item_branding;
+pub mod supplier;
+pub mod purchase_order;
+pub mod po_line_item;
+pub mod po_receipt;
+pub mod po_defect;
