@@ -38,3 +38,6 @@ pub mod purchase_order;
 pub mod po_status;
 pub mod po_receipt;
 pub mod po_defect;
+pub mod po_procurement_timeline;
+pub mod po_dashboard;
+pub mod po_overdue;

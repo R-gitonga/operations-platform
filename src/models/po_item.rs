@@ -42,7 +42,7 @@ pub struct PoItem {
 // nested inside CreatePurchaseOrderRequest (creating a PO with
 // its items in one transaction) — line_items is always required
 // since a po_item with no sizes has nothing to receive against.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct CreatePoItemRequest {
     pub category_id: Option<i32>,
     pub description: Option<String>,

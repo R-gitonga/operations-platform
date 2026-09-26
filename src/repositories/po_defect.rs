@@ -142,3 +142,26 @@ pub async fn total_defective_for_line(
 
     Ok(total as i32)
 }
+
+// Only defects that still count against accepted quantity -- i.e.
+// excludes any defect resolved as 'accepted' (turned out fine after
+// all). This is the figure the status derivation and per-line
+// "outstanding" calculations both use.
+pub async fn total_non_accepted_defective_for_line(
+    pool: &DbPool,
+    po_line_item_id: i32,
+) -> Result<i32, sqlx::Error> {
+    let total: i64 = sqlx::query_scalar(
+        r#"
+        SELECT COALESCE(SUM(qty_defective), 0)
+        FROM po_defects
+        WHERE po_line_item_id = $1
+          AND (resolution_type IS NULL OR resolution_type != 'accepted')
+        "#,
+    )
+    .bind(po_line_item_id)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(total as i32)
+}

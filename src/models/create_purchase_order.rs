@@ -12,5 +12,6 @@ pub struct CreatePurchaseOrderRequest {
 
     pub description: Option<String>,
 
+    #[serde(skip_serializing)]
     pub items: Vec<CreatePoItemRequest>,
 }

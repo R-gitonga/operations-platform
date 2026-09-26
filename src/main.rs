@@ -40,6 +40,7 @@ use routes::{
     po_line_item::routes as po_line_item_route,
     po_receipt::routes as po_receipt_route,
     po_defect::routes as po_defect_route,
+    po_dashboard::routes as po_dashboard_route,
 };
 
 use tower_http::services::ServeDir;
@@ -104,6 +105,7 @@ async fn main() {
         .merge(po_line_item_route())
         .merge(po_receipt_route())
         .merge(po_defect_route())
+        .merge(po_dashboard_route())
         .nest_service(
             "/uploads",
             ServeDir::new("uploads"),

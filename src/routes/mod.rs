@@ -16,3 +16,4 @@ pub mod purchase_order;
 pub mod po_line_item;
 pub mod po_receipt;
 pub mod po_defect;
+pub mod po_dashboard;

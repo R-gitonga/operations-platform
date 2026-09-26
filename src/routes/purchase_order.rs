@@ -15,7 +15,7 @@ use crate::{
             update_purchase_order,
             upload_attachment,
         },
-        po_item::{add_item, get_item, update_item},
+        po_item::{add_item, get_item, get_procurement_timeline, update_item},
     },
 };
 
@@ -63,5 +63,10 @@ pub fn routes() -> Router<AppState> {
             "/po-items/{id}",
             get(get_item)
                 .put(update_item),
+        )
+
+        .route(
+            "/po-items/{id}/procurement-timeline",
+            get(get_procurement_timeline),
         )
 }

@@ -20,3 +20,4 @@ pub mod po_line_item;
 pub mod po_item_note;
 pub mod po_receipt;
 pub mod po_defect;
+pub mod po_dashboard;

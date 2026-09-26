@@ -3,14 +3,9 @@ use serde::Serialize;
 
 use crate::models::{
     po_item_note::PoItemNote,
-    po_line_item::PoLineItem,
+    po_line_item::PoLineItemDetail,
 };
 
-// Receiving/defect totals (total_qty_received, total_outstanding,
-// total_defective) will be added here once po_receipts/po_defects
-// exist — deliberately left out for now rather than stubbed with
-// zeros, so the shape stays honest about what's actually derivable
-// at this stage.
 #[derive(Debug, Serialize)]
 pub struct PoItemDetail {
     pub id: i32,
@@ -35,11 +30,15 @@ pub struct PoItemDetail {
 
     pub total_qty_ordered: i32,
 
+    pub total_qty_delivered: i32,
+
+    pub total_qty_accepted: i32,
+
     pub created_by: String,
 
     pub created_at: DateTime<Utc>,
 
-    pub line_items: Vec<PoLineItem>,
+    pub line_items: Vec<PoLineItemDetail>,
 
     pub notes: Vec<PoItemNote>,
 }

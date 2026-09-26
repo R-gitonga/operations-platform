@@ -1,12 +1,14 @@
 use crate::{
     database::DbPool,
     errors::app_error::AppError,
-    models::po_line_item::{
-        CreatePoLineItemRequest,
-        PoLineItem,
-        UpdatePoLineItemRequest,
+    models::{
+        po_defect::PoDefect,
+        po_line_item::{
+            CreatePoLineItemRequest, PoLineItem, PoLineItemDetail,
+            UpdatePoLineItemRequest,
+        },
     },
-    repositories::{po_item, po_line_item, purchase_order},
+    repositories::{po_defect, po_item, po_line_item, po_receipt, purchase_order},
     services::po_rules,
 };
 
@@ -79,4 +81,63 @@ pub async fn update_line_item(
         po_line_item::update(pool, id, &payload.size, payload.qty_ordered)
             .await?
     )
+}
+
+async fn build_detail(
+    pool: &DbPool,
+    line_item: PoLineItem,
+) -> Result<PoLineItemDetail, AppError> {
+
+    let total_delivered =
+        po_receipt::total_delivered_for_line(pool, line_item.id).await?;
+
+    let total_defective =
+        po_defect::total_non_accepted_defective_for_line(pool, line_item.id)
+            .await?;
+
+    let total_accepted = total_delivered - total_defective;
+    let outstanding = line_item.qty_ordered - total_accepted;
+
+    let defects: Vec<PoDefect> =
+        po_defect::find_by_line_item(pool, line_item.id).await?;
+
+    Ok(PoLineItemDetail {
+        line_item,
+        total_delivered,
+        total_defective,
+        total_accepted,
+        outstanding,
+        defects,
+    })
+}
+
+pub async fn get_line_item_detail(
+    pool: &DbPool,
+    id: i32,
+) -> Result<PoLineItemDetail, AppError> {
+
+    let line_item = po_line_item::find_by_id(pool, id)
+        .await?
+        .ok_or(AppError::NotFound)?;
+
+    build_detail(pool, line_item).await
+}
+
+// Used by the PO-item-header service to assemble every one of its
+// lines' receiving/defect figures without needing to know how a
+// single line's detail is built.
+pub async fn get_line_items_detail_for_item(
+    pool: &DbPool,
+    po_item_id: i32,
+) -> Result<Vec<PoLineItemDetail>, AppError> {
+
+    let line_items = po_line_item::find_by_item(pool, po_item_id).await?;
+
+    let mut details = Vec::with_capacity(line_items.len());
+
+    for line_item in line_items {
+        details.push(build_detail(pool, line_item).await?);
+    }
+
+    Ok(details)
 }

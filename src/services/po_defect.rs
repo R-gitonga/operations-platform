@@ -49,10 +49,15 @@ pub async fn report_defect(
     let total_delivered =
         po_receipt::total_delivered_for_line(pool, po_line_item_id).await?;
 
-    let already_flagged =
-        po_defect::total_defective_for_line(pool, po_line_item_id).await?;
+    // Uses the non-accepted total (not the all-time total) so that
+    // a defect resolved as 'accepted' frees up room to flag a new
+    // issue against that same quantity later -- matching the same
+    // math services::po_status uses.
+    let currently_defective =
+        po_defect::total_non_accepted_defective_for_line(pool, po_line_item_id)
+            .await?;
 
-    if already_flagged + payload.qty_defective > total_delivered {
+    if currently_defective + payload.qty_defective > total_delivered {
         return Err(AppError::BadRequest(
             "Defective quantity exceeds quantity delivered for this line item.".into(),
         ));

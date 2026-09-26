@@ -28,3 +28,6 @@ pub mod password_reset_token;
 pub mod po_receipt;
 pub mod po_status;
 pub mod po_defect;
+pub mod po_procurement_event;
+pub mod po_dashboard;
+pub mod po_overdue;

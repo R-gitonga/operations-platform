@@ -8,7 +8,7 @@ use crate::{
         po_item_detail::PoItemDetail,
     },
     repositories::{po_item, po_item_note, po_line_item, purchase_order},
-    services::po_rules,
+    services::{po_line_item as po_line_item_service, po_rules},
 };
 
 fn validate_branding(
@@ -162,12 +162,19 @@ pub async fn get_item_detail(
         .await?
         .ok_or(AppError::NotFound)?;
 
-    let line_items = po_line_item::find_by_item(pool, id).await?;
+    let line_items =
+        po_line_item_service::get_line_items_detail_for_item(pool, id).await?;
 
     let notes = po_item_note::find_by_item(pool, id).await?;
 
     let total_qty_ordered: i32 =
-        line_items.iter().map(|l| l.qty_ordered).sum();
+        line_items.iter().map(|l| l.line_item.qty_ordered).sum();
+
+    let total_qty_delivered: i32 =
+        line_items.iter().map(|l| l.total_delivered).sum();
+
+    let total_qty_accepted: i32 =
+        line_items.iter().map(|l| l.total_accepted).sum();
 
     Ok(PoItemDetail {
         id: item.id,
@@ -181,6 +188,8 @@ pub async fn get_item_detail(
         branding_location_id: item.branding_location_id,
         branding_location_name: item.branding_location_name,
         total_qty_ordered,
+        total_qty_delivered,
+        total_qty_accepted,
         created_by: item.created_by,
         created_at: item.created_at,
         line_items,

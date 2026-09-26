@@ -10,8 +10,9 @@ use crate::{
     models::{
         po_item::{CreatePoItemRequest, PoItem, UpdatePoItemRequest},
         po_item_detail::PoItemDetail,
+        po_procurement_event::PoProcurementEvent,
     },
-    services::po_item,
+    services::{po_item, po_procurement_timeline},
 };
 
 pub async fn add_item(
@@ -53,4 +54,15 @@ pub async fn update_item(
         po_item::update_item(&state.pool, id, &payload).await?;
 
     Ok(Json(updated))
+}
+
+pub async fn get_procurement_timeline(
+    State(state): State<AppState>,
+    _user: AuthenticatedUser,
+    Path(po_item_id): Path<i32>,
+) -> Result<Json<Vec<PoProcurementEvent>>, AppError> {
+    let timeline =
+        po_procurement_timeline::list(&state.pool, po_item_id).await?;
+
+    Ok(Json(timeline))
 }

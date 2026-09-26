@@ -6,8 +6,11 @@ use crate::{
         purchase_order::{PurchaseOrder, UpdatePurchaseOrderRequest},
         purchase_order_detail::PurchaseOrderDetail,
     },
-    repositories::{purchase_order, supplier},
-    services::{po_item, po_rules},
+    repositories::{po_status as po_status_repo, purchase_order, supplier},
+    services::{
+        po_item, po_receipt, po_rules,
+        po_status as po_status_service,
+    },
 };
 
 fn validate_references(
@@ -115,14 +118,27 @@ pub async fn get_detail(
         .await?
         .ok_or(AppError::NotFound)?;
 
-    // let supplier = supplier::find_by_id(pool, order.supplier_id)
-    //     .await?
-    //     .ok_or(AppError::NotFound)?;
-
     let items = po_item::get_items_detail_for_purchase_order(pool, id).await?;
 
     let total_qty_ordered: i32 =
         items.iter().map(|i| i.total_qty_ordered).sum();
+
+    let total_qty_delivered: i32 =
+        items.iter().map(|i| i.total_qty_delivered).sum();
+
+    let total_qty_accepted: i32 =
+        items.iter().map(|i| i.total_qty_accepted).sum();
+
+    let total_qty_defective = total_qty_delivered - total_qty_accepted;
+
+    let total_outstanding = total_qty_ordered - total_qty_accepted;
+
+    let status_inputs =
+        po_status_repo::find_status_inputs_by_id(pool, id).await?;
+
+    let derived_status = po_status_service::derive_status(&status_inputs);
+
+    let receipts = po_receipt::get_receipts_with_lines(pool, id).await?;
 
     Ok(PurchaseOrderDetail {
         id: order.id,
@@ -134,11 +150,17 @@ pub async fn get_detail(
         attachment_path: order.attachment_path,
         attachment_name: order.attachment_name,
         status: order.status,
+        derived_status,
         total_items: items.len(),
         total_qty_ordered,
+        total_qty_delivered,
+        total_qty_accepted,
+        total_qty_defective,
+        total_outstanding,
         created_by: order.created_by,
         created_at: order.created_at,
         items,
+        receipts,
     })
 }
 
