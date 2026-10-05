@@ -1,19 +1,15 @@
-mod database;
-mod models;
-mod handlers;
 mod app_state;
 mod authenticated_user;
-mod errors;
-mod routes;
-mod repositories;
-mod services;
 mod config;
+mod database;
+mod errors;
+mod handlers;
+mod models;
+mod repositories;
+mod routes;
+mod services;
 
-use axum::{
-    routing::get,
-    Json,
-    Router,
-};
+use axum::{routing::get, Json, Router};
 
 use app_state::AppState;
 use dotenvy::dotenv;
@@ -22,25 +18,17 @@ use sqlx::postgres::PgPoolOptions;
 use std::env;
 
 use routes::{
-    wso::routes as wso_routes,
-    line_item::routes as line_item_routes,
-    category::routes as category_routes,
-    dashboard::routes as dashboard_routes,
-    settings::routes as settings_routes,
+    auth::routes as auth_routes, branding::routes as branding_route,
+    category::routes as category_routes, dashboard::routes as dashboard_routes,
+    debug::routes as debug_route, line_item::routes as line_item_routes,
     notification_recipient::routes as notification_recipient_route,
-    debug::routes as debug_route,
-    production_stage::routes as production_Stage_route,
-    auth::routes as auth_routes,
-    users::routes as users_routes,
     partial_receiving_attention::routes as partial_receiving_attention_route,
-    branding::routes as branding_route,
+    po_dashboard::routes as po_dashboard_route, po_defect::routes as po_defect_route,
+    po_line_item::routes as po_line_item_route, po_receipt::routes as po_receipt_route,
+    production_stage::routes as production_Stage_route,
+    purchase_order::routes as purchase_order_route, settings::routes as settings_routes,
+    supplier::routes as supplier_route, users::routes as users_routes, wso::routes as wso_routes,
     wso_item_branding::routes as wso_item_branding_route,
-    supplier::routes as supplier_route,
-    purchase_order::routes as purchase_order_route,
-    po_line_item::routes as po_line_item_route,
-    po_receipt::routes as po_receipt_route,
-    po_defect::routes as po_defect_route,
-    po_dashboard::routes as po_dashboard_route,
 };
 
 use tower_http::services::ServeDir;
@@ -61,14 +49,11 @@ async fn root() -> Json<ApiResponse> {
 async fn main() {
     dotenv().ok();
 
-    let config = config::Config::from_env()
-        .expect("Failed to load application configuration");
+    let config = config::Config::from_env().expect("Failed to load application configuration");
 
     println!("Starting WSO Tracker API...");
 
-    let database_url =
-        env::var("DATABASE_URL")
-            .expect("DATABASE_URL must be set");
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
     let pool = PgPoolOptions::new()
         .max_connections(5)
@@ -78,10 +63,7 @@ async fn main() {
 
     println!("Connected to Database");
 
-    let state = AppState {
-        pool,
-        config,
-    };
+    let state = AppState { pool, config };
     let worker_pool = state.pool.clone();
     let worker_config = state.config.clone();
 
@@ -106,44 +88,28 @@ async fn main() {
         .merge(po_receipt_route())
         .merge(po_defect_route())
         .merge(po_dashboard_route())
-        .nest_service(
-            "/uploads",
-            ServeDir::new("uploads"),
-        )
+        .nest_service("/uploads", ServeDir::new("uploads"))
         .route("/", get(root))
         .with_state(state);
     //start listening
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
-        .await
-        .unwrap();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
 
     println!("Server running on http://localhost:3000");
 
     tokio::spawn(async move {
-
         loop {
-
-            if let Err(error) =
-                crate::services::notification_worker::process_pending_jobs(
-                    &worker_pool,
-                    &worker_config,
-                )
-                .await
+            if let Err(error) = crate::services::notification_worker::process_pending_jobs(
+                &worker_pool,
+                &worker_config,
+            )
+            .await
             {
-                eprintln!(
-                    "Notification Worker Error: {:?}",
-                    error,
-                );
+                eprintln!("Notification Worker Error: {:?}", error,);
             }
 
-            tokio::time::sleep(
-                std::time::Duration::from_secs(10),
-            )
-            .await;
+            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
         }
-});
+    });
 
-    axum::serve(listener, app)
-        .await
-        .unwrap();
+    axum::serve(listener, app).await.unwrap();
 }
