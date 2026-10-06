@@ -8,5 +8,5 @@ pub struct NotificationEvent {
     pub code: String,
     pub display_name: String,
     pub description: Option<String>,
+    pub module: String,
 }
-

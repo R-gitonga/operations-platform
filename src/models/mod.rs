@@ -60,3 +60,5 @@ pub mod po_summary;
 pub mod po_defect;
 pub mod po_procurement_event;
 pub mod po_dashboard;
+pub mod po_settings;
+pub mod update_po_settings;

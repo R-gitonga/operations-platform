@@ -97,6 +97,28 @@ pub async fn create(
     )
 }
 
+// Deliberately unauthenticated at the handler level (see
+// handlers::auth::bootstrap_admin) -- this is the only way to get
+// past a login screen on a fresh database with zero accounts. It
+// stays safe by self-disabling: the moment any user exists, it
+// refuses, same as it would for any other action against a
+// completed setup.
+pub async fn bootstrap_first_admin(
+    pool: &DbPool,
+    name: &str,
+    email: &str,
+    password: &str,
+) -> Result<User, AppError> {
+
+    let existing_users = user::find_all(pool).await?;
+
+    if !existing_users.is_empty() {
+        return Err(AppError::Forbidden);
+    }
+
+    create(pool, name, email, password, "admin").await
+}
+
 pub async fn update(
     pool: &DbPool,
     id: i32,

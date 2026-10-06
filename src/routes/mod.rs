@@ -17,3 +17,4 @@ pub mod po_line_item;
 pub mod po_receipt;
 pub mod po_defect;
 pub mod po_dashboard;
+pub mod po_settings;

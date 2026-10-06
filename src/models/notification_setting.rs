@@ -14,6 +14,8 @@ pub struct NotificationSetting {
 
     pub description: Option<String>,
 
+    pub module: String,
+
     pub enabled: bool,
 
     pub email_enabled: bool,

@@ -31,3 +31,4 @@ pub mod po_defect;
 pub mod po_procurement_event;
 pub mod po_dashboard;
 pub mod po_overdue;
+pub mod po_settings

@@ -14,9 +14,10 @@ pub async fn find_all(
                 id,
                 code,
                 display_name,
-                description
+                description,
+                module
             FROM notification_events
-            ORDER BY display_name
+            ORDER BY module, display_name
             "#,
         )
         .fetch_all(pool)
@@ -36,7 +37,8 @@ pub async fn find_by_code(
             id,
             code,
             display_name,
-            description
+            description,
+            module
         FROM notification_events
         WHERE code = $1
         "#,

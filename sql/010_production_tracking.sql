@@ -87,7 +87,7 @@ CREATE TABLE IF NOT EXISTS wso_stage_history (
 
         FOREIGN KEY (wso_id)
 
-        REFERENCES wsos(id)
+        REFERENCES wso_orders(id)
 
         ON DELETE CASCADE,
 
@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS wso_stage_history (
 
 CREATE INDEX IF NOT EXISTS idx_wsos_current_stage
 
-ON wsos(current_stage_id);
+ON wso_orders(current_stage_id);
 
 CREATE INDEX IF NOT EXISTS idx_stage_history_wso
 

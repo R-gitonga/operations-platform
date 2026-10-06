@@ -18,13 +18,14 @@ pub async fn find_all(
             ne.code,
             ne.display_name,
             ne.description,
+            ne.module,
             ns.enabled,
             ns.email_enabled,
             ns.in_app_enabled
         FROM notification_settings ns
         JOIN notification_events ne
             ON ne.id = ns.notification_event_id
-        ORDER BY ne.display_name
+        ORDER BY ne.module, ne.display_name
         "#
     )
     .fetch_all(pool)
@@ -74,13 +75,14 @@ pub async fn find_by_code(
             ne.code,
             ne.display_name,
             ne.description,
+            ne.module,
             ns.enabled,
             ns.email_enabled,
             ns.in_app_enabled
         FROM notification_settings ns
         JOIN notification_events ne
             ON ne.id = ns.notification_event_id
-        WHERE ne.code =$1
+        WHERE ne.code = $1
         "#
     )
     .bind(code)
