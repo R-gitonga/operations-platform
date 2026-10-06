@@ -89,10 +89,8 @@ async fn main() {
         .merge(po_receipt_route())
         .merge(po_defect_route())
         .merge(po_dashboard_route())
-        .nest_service(
-            "/uploads",
-            ServeDir::new("uploads"),
-        )
+        .merge(po_settings_route())
+        .nest_service("/uploads", ServeDir::new("uploads"))
         .route("/", get(root))
         .with_state(state);
     //start listening
