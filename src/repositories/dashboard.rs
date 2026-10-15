@@ -210,7 +210,7 @@ pub async fn get_recent_activity(
                 w.wso_number,
 
                 wi.id AS wso_item_id,
-                wi.description,
+                COALESCE(wi.description, '') AS description,
 
                 'stage_change' AS event_type,
 
@@ -243,7 +243,7 @@ pub async fn get_recent_activity(
                 w.wso_number,
 
                 wi.id AS wso_item_id,
-                wi.description,
+                COALESCE(wi.description, '') AS description,
 
                 'partial_received' AS event_type,
 

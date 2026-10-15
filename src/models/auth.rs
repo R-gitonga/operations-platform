@@ -24,3 +24,13 @@ pub struct ResetPasswordRequest {
     pub token: String,
     pub password: String,
 }
+
+// Only used by /auth/bootstrap-admin, which only works while the
+// users table is empty -- there's no role field here deliberately,
+// the bootstrapped account is always "admin".
+#[derive(Debug, Deserialize)]
+pub struct BootstrapAdminRequest {
+    pub name: String,
+    pub email: String,
+    pub password: String,
+}

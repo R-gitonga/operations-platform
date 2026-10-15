@@ -1,1 +1,44 @@
-/target
+# Rust build output and profiling artifacts
+/target/
+**/*.rs.bk
+*.profraw
+*.profdata
+
+# Environment configuration and local secrets
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+/secrets/
+*.key
+*.p12
+*.pfx
+
+# Runtime attachments, logs, and temporary files
+/uploads/
+/logs/
+*.log
+/tmp/
+/temp/
+*.tmp
+
+# Local database backups (keep SQL migrations and fixtures trackable)
+/backups/
+*.dump
+*.backup
+
+# Personal IDE settings and editor recovery files
+/.idea/
+/.vscode/
+*.swp
+*.swo
+*~
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Keep Cargo.lock, rust-toolchain.toml, migrations/, tests/, and .sqlx/
+# under version control for reproducible builds and schema validation.

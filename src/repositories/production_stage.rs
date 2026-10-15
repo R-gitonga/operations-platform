@@ -162,11 +162,11 @@ pub async fn find_items_in_stage(
 
             wi.id AS wso_item_id,
 
-            wi.description,
+            COALESCE(wi.description, '') AS description,
 
-            wi.design_code,
+            COALESCE(wi.design_code, '') AS design_code,
 
-            wi.fabric_code,
+            COALESCE(wi.fabric_code, '') AS fabric_code,
 
             ps.display_name AS stage_name,
 
@@ -290,9 +290,9 @@ pub async fn find_attention_required_items(
             wo.id AS wso_id,
             wo.wso_number,
             wi.id AS wso_item_id,
-            wi.description,
-            wi.design_code,
-            wi.fabric_code,
+            COALESCE(wi.description, '') AS description,
+            COALESCE(wi.design_code, '') AS design_code,
+            COALESCE(wi.fabric_code, '') AS fabric_code,
             ps.id AS current_stage_id,
             ps.display_name AS current_stage_name,
             ps.color AS current_stage_color,

@@ -15,16 +15,18 @@ pub async fn enqueue(
         r#"
         INSERT INTO notification_jobs (
             notification_log_id,
+            sender_name,
             sender_email,
             recipient_email,
             subject,
             html_body
         )
-        VALUES ($1, $2, $3, $4, $5)
+        VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING *
         "#,
     )
     .bind(request.notification_log_id)
+    .bind(request.sender_name)
     .bind(request.sender_email)
     .bind(request.recipient_email)
     .bind(request.subject)
@@ -54,10 +56,10 @@ pub async fn mark_sent(
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
-        UPDATE notification_jobs
+        UPDATE notification_logs
         SET
             status = 'sent',
-            processed_at = NOW()
+            sent_at = NOW()
         WHERE id = $1
         "#,
     )
@@ -75,12 +77,10 @@ pub async fn mark_failed(
 ) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
-        UPDATE notification_jobs
+        UPDATE notification_logs
         SET
             status = 'failed',
-            attempts = attempts + 1,
-            error_message = $1,
-            processed_at = NOW()
+            error_message = $1
         WHERE id = $2
         "#,
     )

@@ -142,7 +142,6 @@ pub async fn find_by_wso_item(
         "#,
     )
     .bind(wso_item_id)
-    .bind(wso_item_id)
     .fetch_all(pool)
     .await?;
 

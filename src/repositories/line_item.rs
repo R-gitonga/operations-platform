@@ -17,6 +17,7 @@ pub async fn create(
     query_as::<_, WsoLineItem>(
     r#"
         INSERT INTO wso_line_items (
+            wso_order_id,
             wso_item_id,
             size,
             qty_raised,
@@ -25,6 +26,7 @@ pub async fn create(
             status
             )
         VALUES (
+            (SELECT wso_order_id FROM wso_items WHERE id = $1),
             $1, $2, $3, COALESCE($4, 0), $5, COALESCE($6, 'Raised')
             )
         RETURNING

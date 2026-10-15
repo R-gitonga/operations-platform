@@ -2,7 +2,6 @@ use crate::{
     database::DbPool,
     errors::app_error::AppError,
     models::user::User,
-    repositories::user,
     services::password,
 };
 
@@ -33,10 +32,11 @@ pub async fn authenticate(
     }
 
     let user =
-        match user::find_by_email(
-            pool,
-            &email,
+        match sqlx::query_as::<_, User>(
+            "SELECT * FROM users WHERE email = $1",
         )
+        .bind(&email)
+        .fetch_one(pool)
         .await
         {
             Ok(user) => user,

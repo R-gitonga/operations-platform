@@ -1,1382 +1,320 @@
 # Operations Platform
-## WSO Tracker Backend
 
-The **Operations Platform** is a web-based workshop-order management system designed to support the end-to-end lifecycle of Workshop Orders (WSOs), from creation and production tracking through receiving, completion, cancellation, notifications, and operational monitoring.
+### WSO Tracker Backend
 
-The system is built around business workflows rather than individual database operations. A Workshop Order may contain multiple line items, each of which can move independently through production stages while the platform maintains the associated history, quantities, notifications, and operational state.
+Operations Platform manages workshop production and external procurement in one operational workflow. Teams can raise Workshop Orders (WSOs), track each product through production, record partial deliveries, manage Purchase Orders (POs), and investigate outstanding quantities and defects.
 
----
+This repository contains the Rust HTTP API, PostgreSQL migrations, and backend integration tests. The [React frontend](https://github.com/R-gitonga/operations-platform-frontend) is maintained separately.
 
-# 1. System Overview
+## Contents
 
-The Operations Platform provides a centralized system for managing workshop production orders and monitoring their progress.
+- [Capabilities](#capabilities)
+- [Architecture and data model](#architecture-and-data-model)
+- [Prerequisites](#prerequisites)
+- [Local setup](#local-setup)
+- [Configuration reference](#configuration-reference)
+- [API overview](#api-overview)
+- [Development and testing](#development-and-testing)
+- [Database changes](#database-changes)
+- [Deployment considerations](#deployment-considerations)
+- [Troubleshooting](#troubleshooting)
+- [Further documentation](#further-documentation)
 
-The current system supports:
+## Capabilities
 
-- User authentication and authorization
-- Role-based access
-- Workshop Order management
-- Multiple line items per WSO
-- Production-stage tracking
-- Quantity raised and received tracking
-- Product receiving
-- WSO completion and cancellation
-- WSO reactivation
-- File attachments
-- Production-stage history
-- Audit and operational history
-- Search and filtering
-- Pagination
-- Dashboard statistics
-- Attention-required monitoring
-- Configurable notification events
-- Configurable notification recipients
-- Email notifications through Microsoft 365 SMTP
-- Background notification processing
-- Notification delivery logging
-- Notification failure tracking
+| Area | Implemented functionality |
+| --- | --- |
+| Accounts | First-admin setup, password login, JWT cookies, active/inactive accounts, administrative user management, and password reset tokens. |
+| Workshop orders | Multiple products per WSO, size/quantity lines, attachments, cancellation, reactivation, and receiving-based completion. |
+| Production | Configurable stages, initial `NOT_STARTED` assignment, item-level stage history, elapsed time, and attention-required views. |
+| Receiving | Partial and full WSO receipts, outstanding balances, receipt history, and configurable partial-receiving attention thresholds. |
+| Branding | Configurable branding types and locations, with quantities attached to WSO product requirements. |
+| Procurement | Suppliers, PO products and size lines, delivery receipts, defects and resolutions, item notes, attachments, and procurement timelines. |
+| Dashboards | WSO production summaries, recent activity, outstanding quantities, PO fulfilment summaries, and overdue delivery views. |
+| Notifications | Event settings, recipients, email jobs, delivery logs, and WSO attention-notification tracking. |
 
-The backend exposes a REST API consumed by the React frontend.
+The application is under active development. PO notification event definitions and thresholds exist, but not all PO notification templates and alert sweeps are implemented. The email worker processes pending jobs every ten seconds; failed jobs record an attempt count but are not automatically scheduled for retry. In-app notification settings exist without a complete in-app delivery workflow.
 
----
-
-# 2. Technology Stack
-
-## Backend
-
-| Technology | Purpose |
-|---|---|
-| Rust | Application language |
-| Axum | HTTP API framework |
-| Tokio | Async runtime |
-| SQLx | PostgreSQL database access |
-| PostgreSQL | Primary database |
-| Serde | Serialization and deserialization |
-| Chrono | Date and time handling |
-| dotenvy | Environment configuration |
-| JSON Web Tokens | Authentication |
-| Lettre | SMTP email delivery |
-| Tower HTTP | Static file serving and HTTP middleware |
-
-## Frontend
-
-The frontend is maintained as a separate React application.
-
-| Technology | Purpose |
-|---|---|
-| React | UI framework |
-| TypeScript | Type safety |
-| Vite | Development/build tooling |
-| React Router | Client-side routing |
-| Tailwind CSS | Styling |
-| shadcn/ui | UI components |
-| TanStack Query | Server-state management |
-| Axios | HTTP client |
-| Lucide React | Icons |
-
----
-
-# 3. Architecture
-
-The backend follows a layered architecture.
+## Architecture and data model
 
 ```text
-HTTP Request
-     │
-     ▼
-   Routes
-     │
-     ▼
-  Handlers
-     │
-     ▼
-  Services
-     │
-     ▼
- Repositories
-     │
-     ▼
- PostgreSQL
+HTTP request
+    → Axum routes
+    → Handlers: request extraction, authentication and responses
+    → Services: business rules and workflow coordination
+    → Repositories: SQLx queries and persistence
+    → PostgreSQL
 ```
 
-Supporting these layers are shared models, application state, authentication, configuration, and error handling.
+The backend uses Rust, Axum 0.8, Tokio, SQLx 0.8, PostgreSQL, Serde, Chrono, Argon2, JSON Web Tokens, and Lettre for SMTP email. Dependency versions are recorded in `Cargo.toml` and `Cargo.lock`.
 
-### Routes
-
-Define HTTP endpoints and connect them to handlers.
-
-### Handlers
-
-Responsible for HTTP concerns such as:
-
-- Extracting request data
-- Authentication
-- Calling services
-- Returning HTTP responses
-
-Handlers should not contain database queries or business logic.
-
-### Services
-
-Contain business workflows and coordinate multiple repositories where necessary.
-
-Examples include:
-
-- WSO creation workflows
-- Notification dispatch
-- Dashboard aggregation
-- Production-stage processing
-
-### Repositories
-
-Contain database access and SQL queries.
-
-This keeps SQL and database concerns separated from HTTP handlers and business logic.
-
-### Models
-
-Contain:
-
-- Database models
-- Request structures
-- Response structures
-- Business-domain structures
-
-### Application State
-
-The application shares common state through `AppState`, including:
-
-- PostgreSQL connection pool
-- Application configuration
-
----
-
-# 4. Backend Structure
+Two order hierarchies underpin the system:
 
 ```text
-src/
-├── app_state.rs
-├── authenticated_user.rs
-├── config.rs
-├── main.rs
-│
-├── database/
-│
-├── errors/
-│
-├── handlers/
-│
-├── models/
-│
-├── repositories/
-│
-├── routes/
-│
-└── services/
+Workshop Order → WSO Item → Size/quantity line
+                     ├── Production-stage history
+                     ├── Branding requirements
+                     └── Receiving events and attention tracking
 
-sql/
-└── database migrations
-
-docs/
-└── architecture/
+Supplier → Purchase Order → PO Item → Size/quantity line
+                              │               ├── Receipt lines
+                              │               └── Defects
+                              └── Item notes
 ```
 
-### Important directories
+Production stages belong to individual WSO items. WSO lines store raised and received quantities, with balance calculated as their difference. PO receiving uses a delivery ledger: delivered, accepted, defective, and outstanding quantities are derived from receipt and defect records. PO completion is a calculated display status; the stored order status is `active` or `cancelled`.
 
-**`handlers/`**
-
-HTTP request handlers.
-
-**`services/`**
-
-Business workflows and application services.
-
-**`repositories/`**
-
-PostgreSQL queries and database access.
-
-**`models/`**
-
-Request, response, and domain structures.
-
-**`routes/`**
-
-HTTP route definitions.
-
-**`errors/`**
-
-Centralized application error handling.
-
-**`database/`**
-
-Database-related abstractions.
-
-**`sql/`**
-
-Database migration scripts.
-
-**`docs/architecture/`**
-
-Architecture and design documentation.
-
----
-
-# 5. Core Business Workflow
-
-The platform is designed around the following business workflow:
+Event timestamps use PostgreSQL `TIMESTAMPTZ` and Rust `DateTime<Utc>`. Date-only business values use `DATE`.
 
 ```text
-Create Workshop Order
-        │
-        ▼
-Add Multiple Line Items
-        │
-        ▼
-Assign / Track Production Stage
-        │
-        ▼
-Monitor Production Progress
-        │
-        ├───────────────┐
-        ▼               ▼
-Update Quantities    Attention Required
-        │               │
-        ▼               ▼
-Receive Products    Notify Relevant Users
-        │
-        ▼
-All Products Received
-        │
-        ▼
-WSO Completed
+.
+├── src/
+│   ├── main.rs              # API startup, route registration and email worker
+│   ├── config.rs            # Environment configuration and validation
+│   ├── authenticated_user.rs # Cookie authentication and active-account lookup
+│   ├── routes/              # HTTP endpoint definitions
+│   ├── handlers/            # HTTP request/response handling
+│   ├── services/            # Business workflows and email templates
+│   ├── repositories/        # SQLx database queries
+│   ├── models/              # Database projections and API payloads
+│   ├── database/            # Database pool type
+│   └── errors/              # Shared application errors
+├── migrations/              # Official SQLx migration history
+├── tests/baseline.rs        # PostgreSQL-backed workflow and SQL checks
+├── docs/                    # Architecture, schema and business-rule documentation
+├── sql/                     # Historical SQL archive — do not execute
+├── uploads/                 # Local attachment storage
+├── Cargo.toml
+├── Cargo.lock
+└── rust-toolchain.toml      # Pinned Rust toolchain
 ```
 
-A WSO can also be:
+## Prerequisites
 
-```text
-Active
-  │
-  ├──► Cancelled
-  │       │
-  │       └──► Reactivated
-  │
-  └──► Completed
+- Git and access to this repository.
+- Rust installed through rustup. `rust-toolchain.toml` currently selects **1.96.1**.
+- Native build tools for your Rust target. On Windows, use the MSVC C++ build tools and Windows SDK. On Linux, the native TLS dependency may require OpenSSL development packages and `pkg-config`.
+- A running PostgreSQL server and a database role with the necessary permissions. The baseline was validated on PostgreSQL **18.6**; other versions have not been validated in this project.
+- SQLx CLI for database creation and migrations.
+- SMTP credentials for actual email delivery.
+- For the optional frontend: Node.js matching its Vite requirement (`^20.19.0` or `>=22.12.0`) and npm.
+
+## Local setup
+
+The commands below use PowerShell and run from the backend repository root unless stated otherwise. On Bash, use `export NAME='value'` instead of `$env:NAME = 'value'`.
+
+### 1. Clone and install the migration CLI
+
+```powershell
+git clone https://github.com/R-gitonga/operations-platform.git
+cd operations-platform
+rustup show
+cargo install sqlx-cli --version '~0.8' --locked --no-default-features --features postgres,rustls
 ```
 
----
+The remote repository is named `operations-platform`; it contains the backend directly. There is no additional `backend/` directory to enter after cloning.
 
-# 6. Workshop Orders
+### 2. Configure the backend
 
-A Workshop Order represents a production request submitted to the workshop.
+Supply the following variables in the terminal that will run the backend. Replace all placeholders with your local configuration. Use a new database name for a fresh installation and URL-encode special characters in the database password.
 
-A WSO contains a header and one or more line items.
-
-The system supports:
-
-- Creating WSOs
-- Viewing WSOs
-- Updating WSOs
-- Cancelling WSOs
-- Reactivating WSOs
-- Completing WSOs
-- Searching WSOs
-- Filtering WSOs
-- Paginating WSO lists
-
-WSO information includes business information such as:
-
-- WSO number
-- Requisition number
-- Date signed
-- Description
-- Design code
-- Fabric code
-- Category
-- Status
-
----
-
-# 7. WSO Line Items
-
-Each WSO may contain multiple products or line items.
-
-Line items support:
-
-- Product descriptions
-- Design information
-- Fabric information
-- Quantity raised
-- Quantity received
-- Receiving dates
-- Production stages
-- Branding requirements
-- Production history
-
-The system treats line items as independent production entities while maintaining their relationship to the parent WSO.
-
-This allows different products within the same WSO to progress through production at different rates.
-
----
-
-# 8. Production Stages
-
-Production stages represent the workshop production workflow.
-
-Line items can be moved between stages and each movement is recorded in the production history.
-
-The system records:
-
-- Previous production state
-- Current production stage
-- Time of change
-- User responsible for the change
-- Associated WSO and line item
-
-This history powers the dashboard's **Recent Production Activity** section.
-
----
-
-# 9. Production Receiving
-
-The system tracks both:
-
-```text
-Quantity Raised
-Quantity Received
-Outstanding Quantity
+```powershell
+$env:DATABASE_URL = 'postgres://DB_USER:URL_ENCODED_PASSWORD@localhost:5432/wso_tracker_new'
+$env:JWT_SECRET = 'REPLACE_WITH_A_LONG_RANDOM_SECRET'
+$env:JWT_EXPIRATION_HOURS = '8'
+$env:SMTP_HOST = 'YOUR_SMTP_HOST'
+$env:SMTP_PORT = '587'
+$env:SMTP_USERNAME = 'YOUR_SMTP_USERNAME'
+$env:SMTP_PASSWORD = 'YOUR_SMTP_PASSWORD'
+$env:SMTP_FROM = 'sender@example.com'
+$env:SYSTEM_NOTIFICATION_NAME = 'Operations Platform'
+$env:SYSTEM_NOTIFICATION_EMAIL = 'sender@example.com'
+$env:FRONTEND_BASE_URL = 'http://localhost:5173'
 ```
 
-The dashboard aggregates these values across active production.
+The application also loads a `.env` file through dotenvy. Explicit process environment variables take precedence. Local `.env` files and their variants are excluded by `.gitignore`; sanitized `.env.example`, `.env.sample`, and `.env.template` files remain trackable. Keep credentials out of commits. Use process environment variables for the setup above, or create a local `.env` file with the same variable names.
 
-When all required quantities for a product have been received, the system can trigger the corresponding notification workflow.
+SMTP fields are required at startup even when no recipients are configured. For development without email delivery, nonempty local placeholder values allow startup, but delivery and password-reset emails will not work. No notification recipients are seeded. Keep recipients empty until a working development SMTP destination is configured.
 
-When all relevant products within a WSO have been received, the WSO can transition to the completed state.
+### 3. Initialize a fresh database
 
----
+Ensure PostgreSQL is running. The role in `DATABASE_URL` needs `CREATEDB` permission for database creation and ownership/schema privileges for migrations.
 
-# 10. Attachments
-
-WSOs support file attachments.
-
-Uploaded files are exposed through the backend's uploads route.
-
-The application currently serves uploaded files under:
-
-```text
-/uploads
+```powershell
+sqlx database create
+sqlx migrate run
+sqlx migrate info
 ```
 
-The backend uses Axum/Tower HTTP static-file serving for this purpose.
+The five migrations create all 29 application tables and seed categories, production stages, notification events/settings, and receiving/procurement defaults. SQLx manages its own `_sqlx_migrations` table. Running `sqlx migrate run` again leaves applied migrations unchanged.
 
----
+No sample users, suppliers, orders, email recipients, or credentials are seeded. Branding types and locations are configured through the application.
 
-# 11. Authentication and Authorization
+**Existing database:** The current baseline replaces experimental migration history and is intended for fresh databases. Do not run it over a populated or manually initialized installation. Preserve that database and follow the [existing-installation guidance](docs/database-baseline.md#existing-installation). Do not run scripts from `sql/` or fabricate SQLx migration records.
 
-The API uses JWT-based authentication.
+### 4. Build and start the API
 
-Authentication includes:
-
-- User login
-- JWT token generation
-- Token expiration
-- Authenticated request extraction
-- User identity propagation
-- Role-based authorization
-
-Protected endpoints use the authenticated-user extractor to ensure requests are associated with a valid user.
-
-JWT configuration includes:
-
-```env
-JWT_SECRET=...
-JWT_EXPIRATION_HOURS=8
+```powershell
+cargo check --locked
+cargo run --locked
 ```
 
-The expiration period can be changed through environment configuration.
+The API listens on `0.0.0.0:3000`. The bind address and port are currently defined in `src/main.rs`, rather than environment variables. Startup connects to PostgreSQL but does not apply migrations automatically.
 
----
+In a second terminal:
 
-# 12. Users and Roles
-
-The system maintains application users and supports role-based access.
-
-Users are associated with operational actions throughout the system.
-
-User identity may be used for:
-
-- Authentication
-- Production-stage changes
-- Audit information
-- Notification context
-- Operational history
-
----
-
-# 13. Dashboard
-
-The dashboard provides an operational overview of workshop activity.
-
-Current dashboard areas include:
-
-### Production Overview
-
-Displays:
-
-- Total orders
-- Active orders
-- Completed orders
-- Cancelled orders
-
-The KPI cards are interactive and navigate to the corresponding order lists.
-
-### Production Stages
-
-Displays the number of items currently associated with each production stage.
-
-Selecting a stage takes the user to the corresponding production-stage view.
-
-### Production Progress
-
-Displays:
-
-- Quantity raised
-- Quantity received
-- Outstanding quantity
-- Overall receiving progress
-
-### Recent Production Activity
-
-Displays paginated production-stage activity in a table.
-
-Each record includes:
-
-- WSO number
-- Product/item description
-- Production stage
-- User responsible
-- Date/time
-
-Activity records remain clickable and take the user directly to the associated WSO.
-
-### Attention Required
-
-Displays products that have remained in production stages beyond their expected duration.
-
-The system calculates:
-
-- Stage start time
-- Expected duration
-- Elapsed time
-- Overdue duration
-
-Attention-required items can be opened directly from the dashboard.
-
----
-
-# 14. Search, Filtering and Pagination
-
-The backend supports server-side search and filtering where appropriate.
-
-WSO lists can be filtered using business-relevant fields such as:
-
-- WSO number
-- Status
-
-Pagination is used for larger result sets.
-
-Dashboard recent activity is also paginated so the dashboard can retain access to the complete activity history without allowing the activity feed to dominate the page.
-
----
-
-# 15. Notification System
-
-The Operations Platform includes a configurable notification subsystem.
-
-The notification system is designed around **events**, **settings**, **recipients**, **logs**, and **jobs**.
-
-```text
-Business Event
-      │
-      ▼
-Notification Event
-      │
-      ▼
-Notification Settings
-      │
-      ▼
-Notification Recipients
-      │
-      ▼
-Notification Log
-      │
-      ▼
-Notification Job
-      │
-      ▼
-Background Worker
-      │
-      ▼
-SMTP
-      │
-      ▼
-Recipient Email
+```powershell
+Invoke-RestMethod http://localhost:3000/
 ```
 
----
+Expected response:
 
-# 16. Notification Events
-
-Notification events define business events that can produce notifications.
-
-Current events include:
-
-| Code | Event |
-|---|---|
-| `wso_created` | Workshop Order Created |
-| `wso_completed` | Workshop Order Completed |
-| `wso_cancelled` | Workshop Order Cancelled |
-| `wso_reactivated` | Workshop Order Reactivated |
-| `attachment_uploaded` | Attachment Uploaded |
-| `attention_required` | Product Attention Required |
-| `product_fully_received` | Product Fully Received |
-
-Each event has:
-
-- Unique code
-- Display name
-- Description
-
----
-
-# 17. Notification Settings
-
-Each notification event has configurable settings.
-
-Settings currently control:
-
-- Whether the event is enabled
-- Whether email notifications are enabled
-- Whether in-app notifications are enabled
-
-The settings are associated with the notification event through `notification_event_id`.
-
-The event's `code`, display name, and description are retrieved by joining the notification settings with the notification events table.
-
----
-
-# 18. Notification Recipients
-
-Recipients are configurable from the application.
-
-A recipient is associated with a notification event and contains:
-
-- Display name
-- Email address
-- Enabled state
-
-This allows different business events to notify different people or groups.
-
-The system does not depend on a permanent hard-coded recipient for normal operation.
-
----
-
-# 19. Email Delivery
-
-Email notifications are delivered through SMTP using the Lettre library.
-
-The current configuration supports Microsoft 365 SMTP.
-
-Example configuration:
-
-```env
-SMTP_HOST=smtp.office365.com
-SMTP_PORT=587
-SMTP_USERNAME=sender@example.com
-SMTP_PASSWORD=...
-SMTP_FROM=sender@example.com
-
-SYSTEM_NOTIFICATION_NAME=Operations Platform
-SYSTEM_NOTIFICATION_EMAIL=sender@example.com
-
-# URL users open in their browser; used in password-reset emails.
-FRONTEND_BASE_URL=http://localhost:5173
+```json
+{"message":"WSO Tracker API"}
 ```
 
-The sender service constructs HTML emails and submits them through the configured SMTP server.
+This root response confirms that the HTTP server is reachable; it is not a comprehensive database readiness check.
 
----
+### 5. Start the frontend and create an administrator
 
-# 20. Notification Jobs and Background Worker
+In a separate terminal, clone the frontend into a sibling directory:
 
-Email delivery is asynchronous.
-
-Rather than sending an email directly as part of the main HTTP request, the system creates a notification job.
-
-The background worker periodically checks for pending jobs.
-
-Current processing interval:
-
-```text
-10 seconds
+```powershell
+cd ..
+git clone https://github.com/R-gitonga/operations-platform-frontend.git
+cd operations-platform-frontend
+npm ci
+npm run dev
 ```
 
-The workflow is:
+Open the address printed by Vite, normally `http://localhost:5173`. The frontend defaults to `/api`; its development proxy forwards that prefix to `http://localhost:3000` and removes the prefix. This allows browser requests and authentication cookies to use the frontend origin. `VITE_API_BASE_URL` overrides the API base URL when needed.
 
-```text
-Business Event
-      │
-      ▼
-Create Notification Log
-      │
-      ▼
-Create Notification Job
-      │
-      ▼
-Job = pending
-      │
-      ▼
-Background Worker
-      │
-      ▼
-SMTP Delivery
-      │
- ┌────┴─────┐
- ▼          ▼
-Success    Failure
- │          │
- ▼          ▼
-sent       failed
+Open `/setup` in the frontend and create the first administrator. The backend permits bootstrap only while the users table is empty. Alternatively, call the API directly using your own credentials:
+
+```powershell
+$admin = @{
+    name = 'YOUR_NAME'
+    email = 'YOUR_EMAIL'
+    password = 'YOUR_CHOSEN_PASSWORD'
+} | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri http://localhost:3000/auth/bootstrap-admin -ContentType 'application/json' -Body $admin
 ```
 
-This prevents email delivery from unnecessarily blocking the primary business transaction.
+Keep the installation accessible only to the setup operator until bootstrap is complete. Sign in, review the seeded categories and stages, configure branding choices, and add suppliers as needed. Add notification recipients only after checking email configuration.
 
----
+## Configuration reference
 
-# 21. Notification Reliability
+| Variable | Required / default | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | Required | PostgreSQL connection URL used by the API and SQLx CLI. |
+| `JWT_SECRET` | Required, nonempty | Signs and validates authentication tokens. |
+| `JWT_EXPIRATION_HOURS` | `8`; must be positive | Token lifetime. |
+| `SMTP_HOST` | Required, nonempty | SMTP server used by Lettre's STARTTLS transport. |
+| `SMTP_PORT` | `587` | SMTP port. |
+| `SMTP_USERNAME` | Required, nonempty | SMTP authentication username. |
+| `SMTP_PASSWORD` | Required, nonempty | SMTP authentication password. |
+| `SMTP_FROM` | Required, nonempty | Currently validated configuration; queued sender identity uses the system notification fields below. |
+| `SYSTEM_NOTIFICATION_NAME` | Required, nonempty | Sender display name for system emails. |
+| `SYSTEM_NOTIFICATION_EMAIL` | Required, nonempty | Sender email address for system emails. |
+| `FRONTEND_BASE_URL` | Set explicitly | Public frontend origin for password-reset links. Configuration defaults to port 5173, but the reset service has a separate port-3000 fallback. Explicit configuration avoids that discrepancy. |
 
-Notification jobs maintain their processing state.
+Database reference settings such as stage durations, receiving thresholds, and notification recipients belong in the database and are managed through application settings. Secrets and environment-specific connection details belong in environment configuration.
 
-A job can contain:
+## API overview
 
-- Status
-- Attempt count
-- Error message
-- Creation time
-- Processing time
+Paths below are backend paths. The frontend development proxy adds `/api` before forwarding requests. Consult `src/routes/` and `src/models/` for the exact methods and payloads.
 
-Successful delivery results in the job being marked as:
+| Route group | Purpose |
+| --- | --- |
+| `/auth/login`, `/auth/logout`, `/auth/me` | Login, logout and current user. |
+| `/auth/bootstrap-admin`, `/auth/forgot-password`, `/auth/reset-password` | Initial account setup and password recovery. |
+| `/users` | Administrative user management. |
+| `/wso`, `/wso/{id}`, `/wso/summary` | WSO creation, details, updates and totals. |
+| `/wso-items/{id}/line-items`, `/line-items/{id}/receive` | WSO size lines and receiving. |
+| `/production-stages`, `/wso-items/{id}/stage`, `/wso-items/{id}/stage-history` | Stage configuration, transitions and history. |
+| `/categories`, `/branding/types`, `/branding/locations` | Shared reference data. |
+| `/wso-items/{wso_item_id}/branding` | WSO product branding requirements. |
+| `/dashboard`, `/dashboard/attention-required`, `/partial-receiving` | WSO operational views and receiving settings. |
+| `/suppliers`, `/purchase-orders`, `/po-items`, `/po-line-items` | Procurement records and product lines. |
+| `/purchase-orders/{id}/receipts`, `/po-line-items/{id}/defects`, `/po-defects/{id}/resolve` | Deliveries and quality handling. |
+| `/purchase-orders/dashboard`, `/po-items/{id}/procurement-timeline`, `/po-settings` | Procurement reporting, history and thresholds. |
+| `/settings/notifications` | Notification settings, events and recipients. |
+| `/uploads` | Files served from local attachment storage. |
 
-```text
-sent
+Protected handlers read the `auth_token` HTTP-only cookie, validate the token, and load the active user. Administrative checks are implemented in individual handlers; the database stores the user's role as text. API clients must retain cookies between login and subsequent requests.
+
+## Development and testing
+
+```powershell
+cargo check --locked
+cargo build --locked
+cargo test --locked
 ```
 
-Failed delivery results in:
+Database integration tests are **ignored by default**. Run them explicitly against a disposable PostgreSQL server with a role permitted to create test databases. Replace the example connection below with your test server's credentials; never use a production connection.
 
-```text
-failed
+```powershell
+$env:DATABASE_URL = 'postgres://TEST_USER:URL_ENCODED_PASSWORD@localhost:5432/wso_tracker_test'
+sqlx database create
+cargo test --locked --test baseline -- --ignored --nocapture
 ```
 
-The associated notification log is also updated.
+SQLx creates isolated test databases and applies the migrations. The tests cover authentication/password reset, WSO creation and item-stage history, branding, partial receiving, PO receipts and defects, notification persistence, database constraints, and preparation of standalone repository SQL. They do not start the email worker or send SMTP messages.
 
-This provides traceability when troubleshooting email delivery.
+Restore `DATABASE_URL` to your development database before starting the API again. The [baseline validation report](docs/database-validation.md) records the tested environment, results and coverage limits. Runtime SQL queries need database tests; a successful `cargo check` alone does not prove schema compatibility.
 
-Pending jobs remain in the database and are therefore not lost when the application is restarted.
+For frontend checks, run `npm run build` and `npm run lint` from the separate frontend checkout.
 
----
+## Database changes
 
-# 22. Notification Logging
+Use `migrations/` as the only active schema history:
 
-Notification logs provide a record of notification activity.
-
-Logs track information such as:
-
-- Notification event
-- Recipient
-- Channel
-- Status
-- Error message
-- Created timestamp
-- Sent timestamp
-
-This provides an operational audit trail for notification delivery.
-
----
-
-# 23. Attention Required Monitoring
-
-The attention-required feature detects products that have remained in a production stage longer than the expected duration.
-
-The system records individual notification occurrences using the:
-
-```text
-attention_required_notifications
+```powershell
+sqlx migrate add describe_the_change
+sqlx migrate run
 ```
 
-table.
+Review the generated version for uniqueness and dependency order. Once a migration is shared or applied, add a new forward migration instead of editing its contents. Keep required reference data separate from test fixtures and secrets. Validate changes on an empty disposable database and rerun the migration command to confirm it is a no-op.
 
-A unique occurrence is identified using:
+The [database design and migration guide](docs/database-baseline.md) explains relationships, deletion policies, reference data, timestamp conventions, and safe handling of older installations.
 
-```text
-wso_item_id
-production_stage_id
-stage_started_at
-```
+## Deployment considerations
 
-This prevents repeated dashboard polling from continuously generating the same notification for the same stage occurrence.
+Run migrations as an explicit deployment step before starting a compatible API build. Persist and back up both PostgreSQL and `uploads/`; attachment files are stored on disk, with paths in the database.
 
-A new stage occurrence can therefore produce a new notification when the product moves into another production stage and subsequently becomes overdue.
+The current server configuration is designed around local development. Before exposing an installation, review the actual deployment requirements, including:
 
----
+- HTTPS and cookie security: login currently sets `Secure=false`.
+- Access to attachments: `/uploads` is mounted as a static file service.
+- Routing: the backend does not configure CORS middleware; production browser access needs appropriate same-origin proxying or an explicitly implemented cross-origin policy.
+- First-admin bootstrap, handler authorization, and the debug notification endpoint.
+- Email delivery monitoring and recovery of failed jobs.
+- Environment-secret management and rotation of any credentials previously committed to repository history.
 
-# 24. Database
+The Vite development proxy is not included in a production frontend build. Configure equivalent API routing in the production web server. This repository does not currently provide a complete deployment or container orchestration configuration.
 
-The application uses PostgreSQL as its primary database.
+## Troubleshooting
 
-The schema is maintained through SQL migration scripts.
+| Symptom | Check |
+| --- | --- |
+| Startup reports a missing configuration value | Set every required variable, including SMTP fields, in the API process's environment. |
+| Database connection fails | Confirm PostgreSQL is running, the URL/port is correct, credentials are URL-encoded, and the role has access. |
+| A table or column is missing | Confirm the API and SQLx CLI use the same `DATABASE_URL`, then inspect `sqlx migrate info`. |
+| Migration reports an existing relation or checksum mismatch | Stop and determine whether this is an older installation or an edited migration. Do not delete data or alter SQLx tracking to bypass the error. |
+| Bootstrap is forbidden | The database already contains a user; use an existing administrator account. |
+| Browser requests return 401 | Sign in, retain cookies, and confirm the account is active. Check the frontend proxy/base URL. |
+| No email arrives | Check recipients, event settings, SMTP configuration, and notification jobs/logs. Failed jobs are not retried automatically. |
+| Reset link opens the wrong application | Set `FRONTEND_BASE_URL` explicitly to the frontend origin. |
+| Port 3000 is unavailable | Stop the conflicting local process or deliberately update the backend bind address and frontend proxy together. |
+| Integration tests are skipped | Provide a disposable test database connection and run with `-- --ignored --nocapture`. |
 
-Major business areas represented in the database include:
+## Further documentation
 
-- Users
-- Roles
-- Workshop Orders
-- WSO Items
-- Production Stages
-- Production Stage History
-- Attachments
-- Notification Events
-- Notification Settings
-- Notification Recipients
-- Notification Logs
-- Notification Jobs
-- Attention Required Notification Tracking
+- [Database baseline, schema audit and installation](docs/database-baseline.md)
+- [Database validation report](docs/database-validation.md)
+- [WSO business rules](docs/business_rules/business_rules.md)
+- [Repository pattern](docs/architecture/002_repository_pattern.md)
+- [Error handling](docs/architecture/003_error_handling.md)
+- [Notification module](docs/architecture/notification-module.md)
 
-Foreign keys and cascading rules are used to maintain relationships between business entities.
-
----
-
-# 25. Repository Pattern
-
-Database access is intentionally isolated from HTTP handling.
-
-For example:
-
-```text
-Handler
-   │
-   ▼
-Service
-   │
-   ▼
-Repository
-   │
-   ▼
-SQLx
-   │
-   ▼
-PostgreSQL
-```
-
-Repositories are responsible for:
-
-- Executing SQL
-- Mapping database records
-- Performing database updates
-- Handling database-level queries
-
-Services are responsible for combining these operations into meaningful business workflows.
-
----
-
-# 26. Error Handling
-
-The backend uses a shared application error abstraction.
-
-This provides consistent handling of:
-
-- Validation errors
-- Authentication errors
-- Authorization errors
-- Database errors
-- Application errors
-
-Handlers convert service failures into appropriate HTTP responses rather than exposing raw internal implementation details.
-
----
-
-# 27. Configuration
-
-Application configuration is loaded from environment variables.
-
-A typical development `.env` contains:
-
-```env
-DATABASE_URL=postgres://postgres:password@localhost/wso_tracker
-
-JWT_SECRET=your-secret
-JWT_EXPIRATION_HOURS=8
-
-SMTP_HOST=smtp.office365.com
-SMTP_PORT=587
-SMTP_USERNAME=sender@example.com
-SMTP_PASSWORD=your-password
-SMTP_FROM=sender@example.com
-
-SYSTEM_NOTIFICATION_NAME=Operations Platform
-SYSTEM_NOTIFICATION_EMAIL=sender@example.com
-```
-
-### Security
-
-The `.env` file should **never be committed to source control**.
-
-Production secrets should be supplied through a secure environment or secret-management system.
-
----
-
-# 28. Running the Backend
-
-## Requirements
-
-Install:
-
-- Rust
-- Cargo
-- PostgreSQL
-
-Ensure PostgreSQL is running and the required database has been created.
-
-Create the `.env` file with the required configuration.
-
-Then run:
-
-```bash
-cargo run
-```
-
-The API starts on:
-
-```text
-http://localhost:3000
-```
-
----
-
-# 29. Development Checks
-
-Compile and validate the project with:
-
-```bash
-cargo check
-```
-
-Build the project with:
-
-```bash
-cargo build
-```
-
-Run the application with:
-
-```bash
-cargo run
-```
-
-Run automated Rust tests with:
-
-```bash
-cargo test
-```
-
----
-
-# 30. API Surface
-
-The API is organized into functional route groups.
-
-Current areas include:
-
-```text
-/auth
-/users
-/wso
-/line-items
-/categories
-/dashboard
-/settings
-/notification-recipients
-/production-stage
-/uploads
-```
-
-The exact endpoint implementation should be treated as the source of truth as the API continues to evolve.
-
-Core WSO operations include:
-
-```text
-POST   /wso
-GET    /wso
-GET    /wso/{id}
-PUT    /wso/{id}
-PATCH  /wso/{id}/cancel
-```
-
-Additional endpoints support:
-
-- WSO line items
-- Categories
-- Dashboard statistics
-- Production stages
-- Authentication
-- Users
-- Settings
-- Notification recipients
-- Attachments
-- Attention-required monitoring
-
----
-
-# 31. Frontend Architecture
-
-The React frontend communicates with the backend through a dedicated API layer.
-
-The architecture is:
-
-```text
-React Page
-     │
-     ▼
-React Hook
-     │
-     ▼
-API Module
-     │
-     ▼
-Axios
-     │
-     ▼
-Rust/Axum API
-```
-
-The frontend is organized approximately as:
-
-```text
-src/
-├── api/
-├── components/
-├── hooks/
-├── layouts/
-├── pages/
-├── services/
-├── types/
-├── app.tsx
-└── main.tsx
-```
-
-This keeps API communication, server state, reusable UI components, and pages separated.
-
----
-
-# 32. Frontend Pages
-
-The current application includes the primary operational workflows around:
-
-- Dashboard
-- WSO list
-- WSO details
-- WSO creation
-- WSO editing
-- Authentication
-- Settings
-- Notification configuration
-- Production-stage workflows
-
-The dashboard provides the operational starting point for users and links directly into the relevant WSO and production workflows.
-
----
-
-# 33. Frontend State Management
-
-TanStack Query manages server-side state.
-
-For example:
-
-```text
-Dashboard
-    │
-    ▼
-useDashboard()
-    │
-    ▼
-getDashboard()
-    │
-    ▼
-GET /dashboard
-```
-
-This separates server data fetching from UI components and provides caching, loading states, error states, and query invalidation.
-
----
-
-# 34. Development Workflow
-
-The preferred development workflow is:
-
-```text
-1. Understand the business workflow
-        ↓
-2. Design/update database schema
-        ↓
-3. Create SQL migration
-        ↓
-4. Update model
-        ↓
-5. Update repository
-        ↓
-6. Update service
-        ↓
-7. Update handler
-        ↓
-8. Update route
-        ↓
-9. Test backend behaviour
-        ↓
-10. Update frontend if required
-        ↓
-11. Document
-        ↓
-12. Commit
-```
-
-Changes should be implemented incrementally.
-
-The backend should generally be completed and verified before introducing the corresponding frontend changes.
-
----
-
-# 35. Development Principles
-
-The system follows several principles.
-
-### Business workflows over database tables
-
-Instead of thinking:
-
-```text
-Create WSO
-Create Line Item
-Update Line Item
-```
-
-the system should be understood as:
-
-```text
-Create Workshop Order
-        ↓
-Create Header
-        ↓
-Add Multiple Products
-        ↓
-Track Production
-        ↓
-Notify Relevant Users
-        ↓
-Receive Products
-        ↓
-Complete Workshop Order
-```
-
-### Separation of concerns
-
-Database queries belong in repositories.
-
-Business workflows belong in services.
-
-HTTP concerns belong in handlers.
-
-UI concerns belong in React components.
-
-### Incremental development
-
-Large changes should be broken into small, verifiable changes.
-
-A typical feature should progress from:
-
-```text
-Database
-→ Model
-→ Repository
-→ Service
-→ Handler
-→ Route
-→ Backend Test
-→ Frontend
-```
-
----
-
-# 36. Current MVP Status
-
-The current system has progressed beyond the initial CRUD prototype and represents a functioning end-to-end operational MVP.
-
-The major operational flow is working across:
-
-```text
-Authentication
-       ↓
-Dashboard
-       ↓
-Workshop Orders
-       ↓
-WSO Details
-       ↓
-Production Tracking
-       ↓
-Receiving
-       ↓
-Notifications
-       ↓
-Email Delivery
-       ↓
-Notification Logging
-```
-
-The notification system has been tested end-to-end, including real email delivery for supported business events.
-
-The application is therefore at the stage where further development can focus increasingly on:
-
-- UX refinement
-- Workflow improvements
-- Operational controls
-- Reliability
-- Reporting
-- User feedback
-
-rather than establishing the fundamental system architecture.
-
----
-
-# 37. Future Enhancements
-
-The following features are candidates for future versions. They are **not necessarily part of the current MVP**.
-
-## Attention Required Acknowledgement
-
-Introduce an acknowledgement workflow for attention-required items.
-
-Potential workflow:
-
-```text
-Item becomes overdue
-        ↓
-Attention notification
-        ↓
-User acknowledges
-        ↓
-Acknowledgement recorded
-        ↓
-Other users can see that it is being handled
-```
-
-Potential information:
-
-- Acknowledged by
-- Acknowledged at
-- Acknowledgement note
-- Current acknowledgement state
-
-This would prevent multiple users from independently investigating the same issue.
-
----
-
-## Notification Retry / Recovery
-
-Improve failed notification handling with controlled retries.
-
-Potential future behaviour:
-
-```text
-Pending
-  ↓
-Attempt
-  ├── Success → Sent
-  │
-  └── Failure
-       ↓
-     Retry
-       ↓
- Maximum attempts
-       ↓
- Permanently Failed
-```
-
-The existing job architecture already provides a foundation for this.
-
----
-
-## In-App Notifications
-
-The notification system already contains an `in_app_enabled` setting.
-
-A future version could implement an in-app notification center containing:
-
-- Unread notifications
-- Read/unread state
-- Notification timestamps
-- Links to affected WSOs
-- Notification acknowledgement
-
----
-
-## Notification Templates
-
-Move notification HTML into configurable templates rather than constructing message bodies directly inside business services.
-
-Potential template variables include:
-
-```text
-{{wso_number}}
-{{req_number}}
-{{product}}
-{{stage}}
-{{recipient}}
-{{actor}}
-```
-
-This would allow notification wording to evolve without changing business logic.
-
----
-
-## Improved Dashboard Activity
-
-The current activity table can be expanded with:
-
-- More advanced pagination
-- Filtering
-- Date ranges
-- User filters
-- Production-stage filters
-- WSO search
-
----
-
-## Reporting and Analytics
-
-Potential future reporting features include:
-
-- Production turnaround time
-- Average time per production stage
-- Delayed orders
-- Receiving performance
-- Workshop throughput
-- Monthly production statistics
-- Completed versus cancelled WSOs
-- Stage bottleneck analysis
-
----
-
-## Audit History
-
-The existing production history can be expanded into a more comprehensive audit system covering:
-
-- WSO creation
-- WSO edits
-- Quantity changes
-- Stage changes
-- Receiving
-- Cancellation
-- Reactivation
-- Attachments
-- Notification configuration changes
-
----
-
-## Advanced Permissions
-
-Future versions may introduce more granular permissions beyond simple roles.
-
-Examples:
-
-```text
-WSO_CREATE
-WSO_EDIT
-WSO_CANCEL
-WSO_REACTIVATE
-WSO_RECEIVE
-NOTIFICATION_CONFIGURE
-USER_MANAGE
-REPORT_VIEW
-```
-
----
-
-## Production Workflow Automation
-
-Future versions could introduce automated workflow transitions based on production events.
-
-For example:
-
-```text
-All quantities received
-        ↓
-Product completed
-        ↓
-All products completed
-        ↓
-WSO automatically completed
-```
-
----
-
-## ERP Integration
-
-A future integration could connect the Operations Platform to the organization's ERP system.
-
-Potential integration points include:
-
-- Requisition numbers
-- Product master data
-- Stock information
-- Order creation
-- Receiving
-- Production status
-- Inventory synchronization
-
----
-
-# 38. Long-Term Vision
-
-The Operations Platform is intended to evolve from a WSO tracking tool into a broader operational workflow platform.
-
-The long-term goal is not simply to maintain a database of workshop orders.
-
-The system should answer operational questions such as:
-
-> What needs to happen?
-
-> What is currently happening?
-
-> What is delayed?
-
-> Who needs to act?
-
-> Has someone acknowledged the problem?
-
-> Who was notified?
-
-> Was the notification delivered?
-
-> What happened to this order?
-
-> Where are production bottlenecks occurring?
-
-The platform should progressively turn these questions into visible, actionable workflows rather than requiring users to reconstruct the answers manually from database records.
-
----
-
-# 39. Project Status
-
-**Current stage: Functional MVP / Operational Validation**
-
-The core system is operational and the end-to-end workflow has been established.
-
-The next development phase should prioritize incremental improvements based on actual user interaction with the system rather than introducing unnecessary architectural complexity.
+Some architecture documents describe earlier development phases. Use current Rust routes, models, services, and active migrations as the implementation reference when older documentation differs.

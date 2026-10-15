@@ -17,11 +17,11 @@ pub async fn find_attention_required(
 
             wo.wso_number,
 
-            wi.description,
+            COALESCE(wi.description, '') AS description,
 
-            wi.design_code,
+            COALESCE(wi.design_code, '') AS design_code,
 
-            wi.fabric_code,
+            COALESCE(wi.fabric_code, '') AS fabric_code,
 
             prt.first_partial_received_at,
 
