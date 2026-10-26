@@ -7,30 +7,21 @@ use crate::{
     repositories::po_status::{self, PoStatusInputs},
 };
 
-/// Mirrors the math in `services::wso::refresh_wso_status`
-/// (global accepted-vs-ordered comparison), but is deliberately
-/// NOT persisted anywhere -- purchase_orders.status only ever
-/// stores 'active'/'cancelled'. Computed fresh wherever a display
-/// label is needed.
-///
-/// accepted = delivered - (defective quantity not reversed by an
-/// "accepted" resolution). An open defect always has
-/// resolution_type = NULL, so it always counts against accepted --
-/// which is what keeps a PO at "partial" while any defect is
-/// unresolved, with no separate check needed.
+/// Status is derived, never persisted beyond active/cancelled. Every size line
+/// must be fulfilled for completion, matching PO email readiness. Accepted
+/// quantity subtracts every defect except those resolved as accepted.
 pub fn derive_status(inputs: &PoStatusInputs) -> String {
     if inputs.raw_status.eq_ignore_ascii_case("cancelled") {
         return "cancelled".to_string();
     }
 
-    let total_accepted =
-        inputs.total_delivered - inputs.total_non_accepted_defective;
+    let total_accepted = inputs.total_delivered - inputs.total_non_accepted_defective;
 
     if inputs.total_ordered == 0 || total_accepted <= 0 {
         return "active".to_string();
     }
 
-    if total_accepted < inputs.total_ordered {
+    if !inputs.all_lines_complete {
         "partial".to_string()
     } else {
         "completed".to_string()
@@ -41,8 +32,7 @@ pub async fn get_status_for_order(
     pool: &DbPool,
     purchase_order_id: i32,
 ) -> Result<String, AppError> {
-    let inputs =
-        po_status::find_status_inputs_by_id(pool, purchase_order_id).await?;
+    let inputs = po_status::find_status_inputs_by_id(pool, purchase_order_id).await?;
 
     Ok(derive_status(&inputs))
 }

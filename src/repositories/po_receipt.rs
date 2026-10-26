@@ -52,6 +52,10 @@ pub async fn create(
     payload: &CreatePoReceiptRequest,
 ) -> Result<PoReceiptDetail, sqlx::Error> {
     let mut tx = pool.begin().await?;
+    sqlx::query("SELECT set_config('app.actor',$1,true)")
+        .bind(received_by)
+        .execute(&mut *tx)
+        .await?;
 
     let receipt = query_as::<_, PoReceipt>(
         r#"
@@ -86,12 +90,10 @@ pub async fn create(
     let mut lines = Vec::with_capacity(payload.lines.len());
 
     for line in &payload.lines {
-        let qty_ordered: i32 = query_scalar(
-            "SELECT qty_ordered FROM po_line_items WHERE id = $1",
-        )
-        .bind(line.po_line_item_id)
-        .fetch_one(tx.as_mut())
-        .await?;
+        let qty_ordered: i32 = query_scalar("SELECT qty_ordered FROM po_line_items WHERE id = $1")
+            .bind(line.po_line_item_id)
+            .fetch_one(tx.as_mut())
+            .await?;
 
         let previously_delivered =
             total_delivered_for_line_tx(&mut tx, line.po_line_item_id).await?;
@@ -142,9 +144,9 @@ pub async fn find_by_purchase_order(
     pool: &DbPool,
     purchase_order_id: i32,
 ) -> Result<Vec<PoReceipt>, sqlx::Error> {
-    query_as::<_, PoReceipt>(
-        &format!("{PO_RECEIPT_SELECT} WHERE purchase_order_id = $1 ORDER BY received_at DESC"),
-    )
+    query_as::<_, PoReceipt>(&format!(
+        "{PO_RECEIPT_SELECT} WHERE purchase_order_id = $1 ORDER BY received_at DESC"
+    ))
     .bind(purchase_order_id)
     .fetch_all(pool)
     .await
@@ -154,9 +156,9 @@ pub async fn find_lines_by_receipt(
     pool: &DbPool,
     po_receipt_id: i32,
 ) -> Result<Vec<PoReceiptLine>, sqlx::Error> {
-    query_as::<_, PoReceiptLine>(
-        &format!("{PO_RECEIPT_LINE_SELECT} WHERE po_receipt_id = $1 ORDER BY id"),
-    )
+    query_as::<_, PoReceiptLine>(&format!(
+        "{PO_RECEIPT_LINE_SELECT} WHERE po_receipt_id = $1 ORDER BY id"
+    ))
     .bind(po_receipt_id)
     .fetch_all(pool)
     .await
@@ -166,9 +168,9 @@ pub async fn find_lines_by_line_item(
     pool: &DbPool,
     po_line_item_id: i32,
 ) -> Result<Vec<PoReceiptLine>, sqlx::Error> {
-    query_as::<_, PoReceiptLine>(
-        &format!("{PO_RECEIPT_LINE_SELECT} WHERE po_line_item_id = $1 ORDER BY id"),
-    )
+    query_as::<_, PoReceiptLine>(&format!(
+        "{PO_RECEIPT_LINE_SELECT} WHERE po_line_item_id = $1 ORDER BY id"
+    ))
     .bind(po_line_item_id)
     .fetch_all(pool)
     .await

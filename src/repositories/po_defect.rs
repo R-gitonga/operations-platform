@@ -1,9 +1,6 @@
 use sqlx::query_as;
 
-use crate::{
-    database::DbPool,
-    models::po_defect::PoDefect,
-};
+use crate::{database::DbPool, models::po_defect::PoDefect};
 
 const PO_DEFECT_SELECT: &str = r#"
 SELECT
@@ -28,7 +25,12 @@ pub async fn create(
     reason: &str,
     reported_by: &str,
 ) -> Result<PoDefect, sqlx::Error> {
-    query_as::<_, PoDefect>(
+    let mut tx = pool.begin().await?;
+    sqlx::query("SELECT set_config('app.actor',$1,true)")
+        .bind(reported_by)
+        .execute(&mut *tx)
+        .await?;
+    let defect = query_as::<_, PoDefect>(
         r#"
         INSERT INTO po_defects
         (
@@ -59,8 +61,10 @@ pub async fn create(
     .bind(qty_defective)
     .bind(reason)
     .bind(reported_by)
-    .fetch_one(pool)
-    .await
+    .fetch_one(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(defect)
 }
 
 pub async fn resolve(
@@ -70,7 +74,12 @@ pub async fn resolve(
     resolution_notes: Option<&str>,
     resolved_by: &str,
 ) -> Result<PoDefect, sqlx::Error> {
-    query_as::<_, PoDefect>(
+    let mut tx = pool.begin().await?;
+    sqlx::query("SELECT set_config('app.actor',$1,true)")
+        .bind(resolved_by)
+        .execute(&mut *tx)
+        .await?;
+    let defect = query_as::<_, PoDefect>(
         r#"
         UPDATE po_defects
         SET
@@ -98,29 +107,26 @@ pub async fn resolve(
     .bind(resolution_type)
     .bind(resolution_notes)
     .bind(resolved_by)
-    .fetch_one(pool)
-    .await
+    .fetch_one(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(defect)
 }
 
-pub async fn find_by_id(
-    pool: &DbPool,
-    id: i32,
-) -> Result<Option<PoDefect>, sqlx::Error> {
-    query_as::<_, PoDefect>(
-        &format!("{PO_DEFECT_SELECT} WHERE id = $1"),
-    )
-    .bind(id)
-    .fetch_optional(pool)
-    .await
+pub async fn find_by_id(pool: &DbPool, id: i32) -> Result<Option<PoDefect>, sqlx::Error> {
+    query_as::<_, PoDefect>(&format!("{PO_DEFECT_SELECT} WHERE id = $1"))
+        .bind(id)
+        .fetch_optional(pool)
+        .await
 }
 
 pub async fn find_by_line_item(
     pool: &DbPool,
     po_line_item_id: i32,
 ) -> Result<Vec<PoDefect>, sqlx::Error> {
-    query_as::<_, PoDefect>(
-        &format!("{PO_DEFECT_SELECT} WHERE po_line_item_id = $1 ORDER BY reported_at DESC"),
-    )
+    query_as::<_, PoDefect>(&format!(
+        "{PO_DEFECT_SELECT} WHERE po_line_item_id = $1 ORDER BY reported_at DESC"
+    ))
     .bind(po_line_item_id)
     .fetch_all(pool)
     .await

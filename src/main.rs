@@ -25,11 +25,10 @@ use routes::{
     partial_receiving_attention::routes as partial_receiving_attention_route,
     po_dashboard::routes as po_dashboard_route, po_defect::routes as po_defect_route,
     po_line_item::routes as po_line_item_route, po_receipt::routes as po_receipt_route,
-    production_stage::routes as production_Stage_route,
+    po_settings::routes as po_settings_route, production_stage::routes as production_Stage_route,
     purchase_order::routes as purchase_order_route, settings::routes as settings_routes,
     supplier::routes as supplier_route, users::routes as users_routes, wso::routes as wso_routes,
     wso_item_branding::routes as wso_item_branding_route,
-    po_settings::routes as po_settings_route,
 };
 
 use tower_http::services::ServeDir;
@@ -67,6 +66,23 @@ async fn main() {
     let state = AppState { pool, config };
     let worker_pool = state.pool.clone();
     let worker_config = state.config.clone();
+
+    let sweep_pool = state.pool.clone();
+    tokio::spawn(async move {
+        loop {
+            if let Err(error) = services::po_notifications::sweep(&sweep_pool).await {
+                eprintln!("PO alert sweep failed: {error}");
+            }
+            let minutes = sqlx::query_scalar::<_, i32>(
+                "SELECT alert_sweep_interval_minutes FROM po_settings WHERE id=1",
+            )
+            .fetch_one(&sweep_pool)
+            .await
+            .unwrap_or(60)
+            .max(1);
+            tokio::time::sleep(std::time::Duration::from_secs(minutes as u64 * 60)).await;
+        }
+    });
 
     //creating route
     let app = Router::new()

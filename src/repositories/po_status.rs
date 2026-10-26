@@ -9,6 +9,7 @@ pub struct PoStatusInputs {
     pub supplier_id: i32,
     pub supplier_name: String,
     pub raw_status: String,
+    pub all_lines_complete: bool,
     pub total_ordered: i64,
     pub total_delivered: i64,
     pub total_non_accepted_defective: i64,
@@ -28,6 +29,7 @@ SELECT
     purchase_orders.supplier_id,
     suppliers.name AS supplier_name,
     purchase_orders.status AS raw_status,
+    COALESCE(bool_and(COALESCE(delivered.total_delivered,0)-COALESCE(defective.total_defective,0)>=po_line_items.qty_ordered),false) AS all_lines_complete,
     COALESCE(SUM(po_line_items.qty_ordered), 0) AS total_ordered,
     COALESCE(SUM(delivered.total_delivered), 0)::BIGINT AS total_delivered,
     COALESCE(SUM(defective.total_defective), 0)::BIGINT AS total_non_accepted_defective
@@ -66,25 +68,19 @@ GROUP BY
     purchase_orders.status
 "#;
 
-pub async fn find_all_status_inputs(
-    pool: &DbPool,
-) -> Result<Vec<PoStatusInputs>, sqlx::Error> {
-    query_as::<_, PoStatusInputs>(
-        &format!("{PO_STATUS_INPUTS_SELECT} {GROUP_BY}"),
-    )
-    .fetch_all(pool)
-    .await
+pub async fn find_all_status_inputs(pool: &DbPool) -> Result<Vec<PoStatusInputs>, sqlx::Error> {
+    query_as::<_, PoStatusInputs>(&format!("{PO_STATUS_INPUTS_SELECT} {GROUP_BY}"))
+        .fetch_all(pool)
+        .await
 }
 
 pub async fn find_status_inputs_by_id(
     pool: &DbPool,
     purchase_order_id: i32,
 ) -> Result<PoStatusInputs, sqlx::Error> {
-    query_as::<_, PoStatusInputs>(
-        &format!(
-            "{PO_STATUS_INPUTS_SELECT} WHERE purchase_orders.id = $1 {GROUP_BY}"
-        ),
-    )
+    query_as::<_, PoStatusInputs>(&format!(
+        "{PO_STATUS_INPUTS_SELECT} WHERE purchase_orders.id = $1 {GROUP_BY}"
+    ))
     .bind(purchase_order_id)
     .fetch_one(pool)
     .await

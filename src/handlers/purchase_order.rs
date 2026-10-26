@@ -22,13 +22,7 @@ pub async fn create_purchase_order(
     AuthenticatedUser(user): AuthenticatedUser,
     Json(payload): Json<CreatePurchaseOrderRequest>,
 ) -> Result<Json<PurchaseOrderDetail>, AppError> {
-    let created =
-        purchase_order::create_complete(
-            &state.pool,
-            &payload,
-            &user.name,
-        )
-        .await?;
+    let created = purchase_order::create_complete(&state.pool, &payload, &user.name).await?;
 
     Ok(Json(created))
 }
@@ -63,8 +57,7 @@ pub async fn get_purchase_order(
     _user: AuthenticatedUser,
     Path(id): Path<i32>,
 ) -> Result<Json<PurchaseOrderDetail>, AppError> {
-    let detail =
-        purchase_order::get_detail(&state.pool, id).await?;
+    let detail = purchase_order::get_detail(&state.pool, id).await?;
 
     Ok(Json(detail))
 }
@@ -75,30 +68,27 @@ pub async fn update_purchase_order(
     Path(id): Path<i32>,
     Json(payload): Json<UpdatePurchaseOrderRequest>,
 ) -> Result<Json<PurchaseOrder>, AppError> {
-    let updated =
-        purchase_order::update(&state.pool, id, &payload).await?;
+    let updated = purchase_order::update(&state.pool, id, &payload).await?;
 
     Ok(Json(updated))
 }
 
 pub async fn cancel_purchase_order(
     State(state): State<AppState>,
-    _user: AuthenticatedUser,
+    AuthenticatedUser(user): AuthenticatedUser,
     Path(id): Path<i32>,
 ) -> Result<Json<PurchaseOrder>, AppError> {
-    let cancelled =
-        purchase_order::cancel(&state.pool, id).await?;
+    let cancelled = purchase_order::cancel(&state.pool, id, &user.name).await?;
 
     Ok(Json(cancelled))
 }
 
 pub async fn reactivate_purchase_order(
     State(state): State<AppState>,
-    _user: AuthenticatedUser,
+    AuthenticatedUser(user): AuthenticatedUser,
     Path(id): Path<i32>,
 ) -> Result<Json<PurchaseOrder>, AppError> {
-    let order =
-        purchase_order::reactivate(&state.pool, id).await?;
+    let order = purchase_order::reactivate(&state.pool, id, &user.name).await?;
 
     Ok(Json(order))
 }
@@ -121,8 +111,7 @@ pub async fn upload_attachment(
 
         fs::create_dir_all("uploads").await?;
 
-        let saved_path =
-            format!("uploads/po_{}_{}", id, file_name);
+        let saved_path = format!("uploads/po_{}_{}", id, file_name);
 
         fs::write(&saved_path, data).await?;
 
@@ -130,18 +119,11 @@ pub async fn upload_attachment(
     }
 
     let (attachment_name, attachment_path) =
-        saved.ok_or(AppError::BadRequest(
-            "No file was uploaded.".to_string(),
-        ))?;
+        saved.ok_or(AppError::BadRequest("No file was uploaded.".to_string()))?;
 
     let updated =
-        purchase_order::update_attachment(
-            &state.pool,
-            id,
-            &attachment_name,
-            &attachment_path,
-        )
-        .await?;
+        purchase_order::update_attachment(&state.pool, id, &attachment_name, &attachment_path)
+            .await?;
 
     Ok(Json(updated))
 }

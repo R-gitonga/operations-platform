@@ -2,25 +2,13 @@ use crate::{
     config::Config,
     database::DbPool,
     models::{
-        enqueue_notification_job::EnqueueNotificationJob,
-        notification_context::NotificationContext,
-        notification_dispatch::NotificationDispatch,
+        notification_context::NotificationContext, notification_dispatch::NotificationDispatch,
     },
-    services::{
-        notification_job,
-        notification_log,
-        notification_recipient,
-        settings,
-        template_renderer,
-    },
+    services::{notification_recipient, settings, template_renderer},
 };
 
-pub async fn resolve(
-    pool: &DbPool,
-    event_code: &str,
-) -> Result<NotificationDispatch, sqlx::Error> {
-    let setting =
-        settings::find_by_code(pool, event_code).await?;
+pub async fn resolve(pool: &DbPool, event_code: &str) -> Result<NotificationDispatch, sqlx::Error> {
+    let setting = settings::find_by_code(pool, event_code).await?;
 
     if !setting.enabled {
         return Ok(NotificationDispatch {
@@ -33,11 +21,7 @@ pub async fn resolve(
     }
 
     let recipients =
-        notification_recipient::find_enabled_by_event(
-            pool,
-            setting.notification_event_id,
-        )
-        .await?;
+        notification_recipient::find_enabled_by_event(pool, setting.notification_event_id).await?;
 
     Ok(NotificationDispatch {
         event_code: setting.code,
@@ -53,18 +37,14 @@ pub async fn dispatch(
     config: &Config,
     context: NotificationContext,
 ) -> Result<(), sqlx::Error> {
-    let dispatch =
-        resolve(pool, &context.event_code).await?;
+    let dispatch = resolve(pool, &context.event_code).await?;
 
-    if dispatch.recipients.is_empty() {
+    if !dispatch.email_enabled || dispatch.recipients.is_empty() {
         return Ok(());
     }
 
     let rendered =
-        template_renderer::render(&context)
-            .map_err(|error| {
-                sqlx::Error::Protocol(error.into())
-            })?;
+        template_renderer::render(&context).map_err(|error| sqlx::Error::Protocol(error.into()))?;
 
     /*
      * Notifications are always sent from the configured
@@ -82,42 +62,23 @@ pub async fn dispatch(
      * NotificationContext and can be rendered into the
      * notification template.
      */
-    let sender_name =
-        config.system_notification_name.clone();
+    let sender_name = config.system_notification_name.clone();
 
-    let sender_email =
-        config.system_notification_email.clone();
+    let sender_email = config.system_notification_email.clone();
 
+    let mut tx = pool.begin().await?;
+    let mut seen = std::collections::HashSet::new();
     for recipient in dispatch.recipients {
-        let log =
-            notification_log::create_pending(
-                pool,
-                recipient.notification_event_id,
-                &recipient.email,
-                "email",
-            )
-            .await?;
-
-        let job = EnqueueNotificationJob {
-            notification_log_id: log.id,
-
-            sender_name: sender_name.clone(),
-
-            sender_email: sender_email.clone(),
-
-            recipient_email: recipient.email.clone(),
-
-            subject: rendered.subject.clone(),
-
-            html_body: rendered.html_body.clone(),
-        };
-
-        notification_job::enqueue(
-            pool,
-            job,
-        )
-        .await?;
+        let email = recipient.email.trim().to_lowercase();
+        if !seen.insert(email.clone()) {
+            continue;
+        }
+        let log_id: i32 = sqlx::query_scalar("INSERT INTO notification_logs(notification_event_id,recipient_email,channel,status) VALUES($1,$2,'email','pending') RETURNING id")
+            .bind(recipient.notification_event_id).bind(&email).fetch_one(&mut *tx).await?;
+        sqlx::query("INSERT INTO notification_jobs(notification_log_id,sender_name,sender_email,recipient_email,subject,html_body) VALUES($1,$2,$3,$4,$5,$6)")
+            .bind(log_id).bind(&sender_name).bind(&sender_email).bind(email)
+            .bind(&rendered.subject).bind(&rendered.html_body).execute(&mut *tx).await?;
     }
-
+    tx.commit().await?;
     Ok(())
 }

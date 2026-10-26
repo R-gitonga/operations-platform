@@ -42,3 +42,4 @@ pub mod po_procurement_timeline;
 pub mod po_dashboard;
 pub mod po_overdue;
 pub mod po_settings;
+pub mod po_notifications;

@@ -1,9 +1,6 @@
 use sqlx::{query_as, Postgres, Transaction};
 
-use crate::{
-    database::DbPool,
-    models::purchase_order::PurchaseOrder,
-};
+use crate::{database::DbPool, models::purchase_order::PurchaseOrder};
 
 // supplier_name is resolved via a scalar subquery rather than a
 // JOIN so the exact same expression can be reused verbatim in
@@ -42,9 +39,8 @@ pub async fn create_tx(
     description: Option<&str>,
     created_by: &str,
 ) -> Result<PurchaseOrder, sqlx::Error> {
-    query_as::<_, PurchaseOrder>(
-        &format!(
-            r#"
+    query_as::<_, PurchaseOrder>(&format!(
+        r#"
             INSERT INTO purchase_orders
             (
                 erp_reference,
@@ -60,9 +56,8 @@ pub async fn create_tx(
             )
             RETURNING {}
             "#,
-            select_columns()
-        ),
-    )
+        select_columns()
+    ))
     .bind(erp_reference)
     .bind(accounts_reference)
     .bind(supplier_id)
@@ -72,15 +67,11 @@ pub async fn create_tx(
     .await
 }
 
-pub async fn find_all(
-    pool: &DbPool,
-) -> Result<Vec<PurchaseOrder>, sqlx::Error> {
-    query_as::<_, PurchaseOrder>(
-        &format!(
-            "SELECT {} FROM purchase_orders ORDER BY id DESC",
-            select_columns()
-        ),
-    )
+pub async fn find_all(pool: &DbPool) -> Result<Vec<PurchaseOrder>, sqlx::Error> {
+    query_as::<_, PurchaseOrder>(&format!(
+        "SELECT {} FROM purchase_orders ORDER BY id DESC",
+        select_columns()
+    ))
     .fetch_all(pool)
     .await
 }
@@ -90,13 +81,10 @@ pub async fn find_all_filtered(
     search: Option<&str>,
     status: Option<&str>,
 ) -> Result<Vec<PurchaseOrder>, sqlx::Error> {
+    let search_pattern = search.map(|v| format!("%{}%", v));
 
-    let search_pattern =
-        search.map(|v| format!("%{}%", v));
-
-    query_as::<_, PurchaseOrder>(
-        &format!(
-            r#"
+    query_as::<_, PurchaseOrder>(&format!(
+        r#"
             SELECT {}
             FROM purchase_orders
 
@@ -112,25 +100,19 @@ pub async fn find_all_filtered(
 
             ORDER BY id DESC
             "#,
-            select_columns()
-        ),
-    )
+        select_columns()
+    ))
     .bind(search_pattern)
     .bind(status)
     .fetch_all(pool)
     .await
 }
 
-pub async fn find_by_id(
-    pool: &DbPool,
-    id: i32,
-) -> Result<Option<PurchaseOrder>, sqlx::Error> {
-    query_as::<_, PurchaseOrder>(
-        &format!(
-            "SELECT {} FROM purchase_orders WHERE id = $1",
-            select_columns()
-        ),
-    )
+pub async fn find_by_id(pool: &DbPool, id: i32) -> Result<Option<PurchaseOrder>, sqlx::Error> {
+    query_as::<_, PurchaseOrder>(&format!(
+        "SELECT {} FROM purchase_orders WHERE id = $1",
+        select_columns()
+    ))
     .bind(id)
     .fetch_optional(pool)
     .await
@@ -140,12 +122,10 @@ pub async fn find_by_id_tx(
     tx: &mut Transaction<'_, Postgres>,
     id: i32,
 ) -> Result<Option<PurchaseOrder>, sqlx::Error> {
-    query_as::<_, PurchaseOrder>(
-        &format!(
-            "SELECT {} FROM purchase_orders WHERE id = $1",
-            select_columns()
-        ),
-    )
+    query_as::<_, PurchaseOrder>(&format!(
+        "SELECT {} FROM purchase_orders WHERE id = $1",
+        select_columns()
+    ))
     .bind(id)
     .fetch_optional(tx.as_mut())
     .await
@@ -159,9 +139,8 @@ pub async fn update(
     supplier_id: i32,
     description: Option<&str>,
 ) -> Result<PurchaseOrder, sqlx::Error> {
-    query_as::<_, PurchaseOrder>(
-        &format!(
-            r#"
+    query_as::<_, PurchaseOrder>(&format!(
+        r#"
             UPDATE purchase_orders
             SET
                 erp_reference = $2,
@@ -172,9 +151,8 @@ pub async fn update(
             WHERE id = $1
             RETURNING {}
             "#,
-            select_columns()
-        ),
-    )
+        select_columns()
+    ))
     .bind(id)
     .bind(erp_reference)
     .bind(accounts_reference)
@@ -190,9 +168,8 @@ pub async fn update_attachment(
     attachment_name: &str,
     attachment_path: &str,
 ) -> Result<PurchaseOrder, sqlx::Error> {
-    query_as::<_, PurchaseOrder>(
-        &format!(
-            r#"
+    query_as::<_, PurchaseOrder>(&format!(
+        r#"
             UPDATE purchase_orders
             SET
                 attachment_name = $2,
@@ -201,9 +178,8 @@ pub async fn update_attachment(
             WHERE id = $1
             RETURNING {}
             "#,
-            select_columns()
-        ),
-    )
+        select_columns()
+    ))
     .bind(id)
     .bind(attachment_name)
     .bind(attachment_path)
@@ -211,13 +187,14 @@ pub async fn update_attachment(
     .await
 }
 
-pub async fn cancel(
-    pool: &DbPool,
-    id: i32,
-) -> Result<PurchaseOrder, sqlx::Error> {
-    query_as::<_, PurchaseOrder>(
-        &format!(
-            r#"
+pub async fn cancel(pool: &DbPool, id: i32, actor: &str) -> Result<PurchaseOrder, sqlx::Error> {
+    let mut tx = pool.begin().await?;
+    sqlx::query("SELECT set_config('app.actor',$1,true)")
+        .bind(actor)
+        .execute(&mut *tx)
+        .await?;
+    let order = query_as::<_, PurchaseOrder>(&format!(
+        r#"
             UPDATE purchase_orders
             SET
                 status = 'cancelled',
@@ -225,21 +202,23 @@ pub async fn cancel(
             WHERE id = $1
             RETURNING {}
             "#,
-            select_columns()
-        ),
-    )
+        select_columns()
+    ))
     .bind(id)
-    .fetch_one(pool)
-    .await
+    .fetch_one(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(order)
 }
 
-pub async fn reactivate(
-    pool: &DbPool,
-    id: i32,
-) -> Result<PurchaseOrder, sqlx::Error> {
-    query_as::<_, PurchaseOrder>(
-        &format!(
-            r#"
+pub async fn reactivate(pool: &DbPool, id: i32, actor: &str) -> Result<PurchaseOrder, sqlx::Error> {
+    let mut tx = pool.begin().await?;
+    sqlx::query("SELECT set_config('app.actor',$1,true)")
+        .bind(actor)
+        .execute(&mut *tx)
+        .await?;
+    let order = query_as::<_, PurchaseOrder>(&format!(
+        r#"
             UPDATE purchase_orders
             SET
                 status = 'active',
@@ -247,10 +226,11 @@ pub async fn reactivate(
             WHERE id = $1
             RETURNING {}
             "#,
-            select_columns()
-        ),
-    )
+        select_columns()
+    ))
     .bind(id)
-    .fetch_one(pool)
-    .await
+    .fetch_one(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(order)
 }

@@ -2,9 +2,7 @@ use sqlx::query_as;
 
 use crate::{database::DbPool, models::po_dashboard::PoOverdueItem};
 
-pub async fn find_overdue(
-    pool: &DbPool,
-) -> Result<Vec<PoOverdueItem>, sqlx::Error> {
+pub async fn find_overdue(pool: &DbPool) -> Result<Vec<PoOverdueItem>, sqlx::Error> {
     query_as::<_, PoOverdueItem>(
         r#"
         SELECT
@@ -15,7 +13,7 @@ pub async fn find_overdue(
             pi.description,
             li.size,
             pi.expected_delivery_date,
-            (CURRENT_DATE - pi.expected_delivery_date)::BIGINT AS days_overdue,
+            ((now() AT TIME ZONE 'Africa/Nairobi')::date - pi.expected_delivery_date)::BIGINT AS days_overdue,
             (
                 li.qty_ordered
                 - (
@@ -46,7 +44,7 @@ pub async fn find_overdue(
         WHERE
             LOWER(po.status) != 'cancelled'
             AND pi.expected_delivery_date IS NOT NULL
-            AND pi.expected_delivery_date < CURRENT_DATE
+            AND pi.expected_delivery_date + (SELECT overdue_grace_days FROM po_settings WHERE id=1) < (now() AT TIME ZONE 'Africa/Nairobi')::date
             AND (
                 li.qty_ordered
                 - (

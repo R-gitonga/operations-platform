@@ -33,7 +33,7 @@ This repository contains the Rust HTTP API, PostgreSQL migrations, and backend i
 | Dashboards | WSO production summaries, recent activity, outstanding quantities, PO fulfilment summaries, and overdue delivery views. |
 | Notifications | Event settings, recipients, email jobs, delivery logs, and WSO attention-notification tracking. |
 
-The application is under active development. PO notification event definitions and thresholds exist, but not all PO notification templates and alert sweeps are implemented. The email worker processes pending jobs every ten seconds; failed jobs record an attempt count but are not automatically scheduled for retry. In-app notification settings exist without a complete in-app delivery workflow.
+All ten PO email events are implemented, including scheduled deadline, stalled-delivery and unresolved-defect alerts. The shared email worker checks every ten seconds, uses durable jobs with leases and bounded retries, and honors event/email switches and recipient eligibility. In-app notifications remain deferred. See the [PO email notification guide](docs/po-email-notifications.md) for event rules, rollout and diagnostics.
 
 ## Architecture and data model
 
@@ -146,7 +146,7 @@ sqlx migrate run
 sqlx migrate info
 ```
 
-The five migrations create all 29 application tables and seed categories, production stages, notification events/settings, and receiving/procurement defaults. SQLx manages its own `_sqlx_migrations` table. Running `sqlx migrate run` again leaves applied migrations unchanged.
+The six migrations create 32 application tables, notification reporting views, and seed categories, production stages, notification events/settings, and receiving/procurement defaults. SQLx manages its own `_sqlx_migrations` table. Running `sqlx migrate run` again leaves applied migrations unchanged.
 
 No sample users, suppliers, orders, email recipients, or credentials are seeded. Branding types and locations are configured through the application.
 
@@ -256,10 +256,10 @@ Database integration tests are **ignored by default**. Run them explicitly again
 ```powershell
 $env:DATABASE_URL = 'postgres://TEST_USER:URL_ENCODED_PASSWORD@localhost:5432/wso_tracker_test'
 sqlx database create
-cargo test --locked --test baseline -- --ignored --nocapture
+cargo test --locked --test baseline --test po_email -- --include-ignored --nocapture
 ```
 
-SQLx creates isolated test databases and applies the migrations. The tests cover authentication/password reset, WSO creation and item-stage history, branding, partial receiving, PO receipts and defects, notification persistence, database constraints, and preparation of standalone repository SQL. They do not start the email worker or send SMTP messages.
+SQLx creates isolated test databases and applies the migrations. The tests cover authentication/password reset, WSO creation and item-stage history, branding, partial receiving, PO receipts and defects, notification persistence, database constraints, and preparation of standalone repository SQL. The PO email suite also exercises worker claims, retry/suppression, event deduplication and a loopback SMTP capture. It never contacts an external SMTP server.
 
 Restore `DATABASE_URL` to your development database before starting the API again. The [baseline validation report](docs/database-validation.md) records the tested environment, results and coverage limits. Runtime SQL queries need database tests; a successful `cargo check` alone does not prove schema compatibility.
 
@@ -303,7 +303,7 @@ The Vite development proxy is not included in a production frontend build. Confi
 | Migration reports an existing relation or checksum mismatch | Stop and determine whether this is an older installation or an edited migration. Do not delete data or alter SQLx tracking to bypass the error. |
 | Bootstrap is forbidden | The database already contains a user; use an existing administrator account. |
 | Browser requests return 401 | Sign in, retain cookies, and confirm the account is active. Check the frontend proxy/base URL. |
-| No email arrives | Check recipients, event settings, SMTP configuration, and notification jobs/logs. Failed jobs are not retried automatically. |
+| No email arrives | Check recipients, event settings, SMTP configuration, and notification jobs/logs. Transient errors retry up to five attempts; terminal failures and suppressed jobs require investigation. |
 | Reset link opens the wrong application | Set `FRONTEND_BASE_URL` explicitly to the frontend origin. |
 | Port 3000 is unavailable | Stop the conflicting local process or deliberately update the backend bind address and frontend proxy together. |
 | Integration tests are skipped | Provide a disposable test database connection and run with `-- --ignored --nocapture`. |
@@ -315,6 +315,7 @@ The Vite development proxy is not included in a production frontend build. Confi
 - [WSO business rules](docs/business_rules/business_rules.md)
 - [Repository pattern](docs/architecture/002_repository_pattern.md)
 - [Error handling](docs/architecture/003_error_handling.md)
+- [PO email notifications: event rules, rollout and diagnostics](docs/po-email-notifications.md)
 - [Notification module](docs/architecture/notification-module.md)
 
 Some architecture documents describe earlier development phases. Use current Rust routes, models, services, and active migrations as the implementation reference when older documentation differs.
