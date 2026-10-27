@@ -82,7 +82,11 @@ Initial follow-up information supports counts and outstanding quantities by bran
 
 Later reporting candidates: intake volume, current open backlog, backlog age, branch demand, MTM versus stock-out mix, and turnaround/on-time performance. Reliable turnaround metrics require durable completion/reopening events and a documented policy; current status or `updated_at` alone is insufficient. Historical backlog snapshots and historical branch-name reporting also need deliberate data capture. Do not promise those metrics from the first sprint's current-state page.
 
-This sprint does not add payment processing, customer/contact records, measurement capture, a separate production workflow, new notifications, automatic queue reprioritization, new SLA targets, exports, or a general report builder. Expediting is supported through visibility and follow-up; existing workflow rules continue to apply. These can be separate follow-on scopes when required.
+This sprint does not add payment processing, customer/contact records, measurement capture, a separate production workflow, new notification event types, automatic queue reprioritization, new SLA targets, exports, or a general report builder. Expediting is supported through visibility and follow-up; existing workflow rules continue to apply. These can be separate follow-on scopes when required.
+
+### Receiving follow-up (27 October 2026)
+
+Confirmed scope: existing workshop/supplier receipts only, with no separate branch confirmation. Paid Orders now provides a receiving panel using the source module's receipt dialogs and validation, alongside clickable order cards and styled creation buttons. The panel shows all source items regardless of list filters. Existing WSO/PO notification events and recipient settings apply, with paid-order branch and reason context included in emails. A forward migration enriches future PO notification snapshots. Automated integration coverage verifies paid receipt totals, completion, notification queueing and settings; frontend build and focused lint checks validate the receiving entry points.
 
 ## Delivery sequence
 

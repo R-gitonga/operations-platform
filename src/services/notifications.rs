@@ -43,8 +43,28 @@ pub async fn dispatch(
         return Ok(());
     }
 
-    let rendered =
+    let mut rendered =
         template_renderer::render(&context).map_err(|error| sqlx::Error::Protocol(error.into()))?;
+
+    // Every WSO event carries the unique WSO number. Enrich the queued message
+    // once, so receipt and scheduled attention events use the same settings.
+    if let Some(reference) = context.variables.get("wso_number") {
+        let rows: Vec<(String, Option<String>, Option<String>)> = sqlx::query_as(
+            "SELECT b.name,i.description,i.paid_order_reason FROM wso_orders o \
+             JOIN branches b ON b.id=o.branch_id JOIN wso_items i ON i.wso_order_id=o.id \
+             WHERE o.wso_number=$1 AND o.is_paid_order ORDER BY i.id",
+        ).bind(reference).fetch_all(pool).await?;
+        if let Some((branch, _, _)) = rows.first() {
+            use crate::services::po_notifications::escape;
+            rendered.subject = format!("[Paid order] {}", rendered.subject);
+            rendered.html_body.push_str(&format!("<h2>Paid order</h2><p>Branch: {}</p><ul>", escape(branch)));
+            for (_, description, reason) in rows {
+                let reason = if reason.as_deref() == Some("mtm") { "Make to measure (MTM)" } else { "Stock-out" };
+                rendered.html_body.push_str(&format!("<li>{}: {reason}</li>", escape(description.as_deref().unwrap_or("Item"))));
+            }
+            rendered.html_body.push_str("</ul>");
+        }
+    }
 
     /*
      * Notifications are always sent from the configured

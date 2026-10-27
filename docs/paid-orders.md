@@ -20,6 +20,16 @@ An order appears once even if several items match. Reason and category filters m
 
 Ordinary WSO/PO lists default to Bulk and offer Bulk / Paid / All. Dashboards retain all-order totals and say so explicitly. Product-category drill-downs on the existing WSO list remain cross-order category views; use Paid Orders for combined paid/branch/category filtering.
 
+## Receiving and notifications
+
+Each Paid Orders card opens its source order. Use **Receiving** on the card to record workshop stock by size or a supplier delivery with its delivery-note reference and notes. The receiving panel shows **all items in the order**, even when reason/category filters restrict the card totals. Receipts update the existing WSO/PO records and refresh Paid Orders. Completed orders leave the default Open view; choose Completed or All to find them again. There is no additional branch-receipt stage.
+
+Existing receiving limits, cancellation rules, PO defect handling and receipt history still apply. PO delivery entry uses ordered minus delivered quantities; the follow-up card uses accepted quantities after defects, so a defect can leave outstanding units even when no further delivery can be recorded.
+
+Paid orders use the existing **WSO and PO notification settings and recipients**. Existing completion, product-received, branding-ready and attention events continue to apply; a partial receipt does not introduce a separate email event. Paid-order emails carry a `[Paid order]` subject prefix, branch name and item reasons. PO notification snapshots preserve that context when the event is captured. Existing queued emails are unchanged. Configure the applicable events and recipients in Notifications settings as usual.
+
+Apply `202610270001_paid_order_notification_context.sql` before running this version. It updates the PO email snapshot function without changing order quantities or historical receipt records. Receipt-to-completion integration coverage checks paid WSO/PO totals, excess receipt rejection, completion jobs, escaped branch context, repeated queue processing and disabled notifications. Tests use disposable databases and do not send to production inboxes.
+
 ## Correct classification
 
 Open an existing order and choose **Edit classification**. Select its paid/bulk classification, branch, and each item's reason together. Save updates the metadata atomically and records old/new values, actor and timestamp in `paid_order_audit`. Switching to Bulk clears branch and all reasons. Cancelled orders must be reactivated before classification can be corrected. If the item list changed during editing, refresh before saving again.

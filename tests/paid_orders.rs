@@ -94,6 +94,52 @@ use serde::Deserialize;
 
 #[sqlx::test(migrations = "./migrations")]
 #[ignore = "requires disposable PostgreSQL"]
+async fn paid_receiving_uses_source_lifecycle_and_notification_settings(pool: PgPool) {
+    pool.execute("INSERT INTO notification_recipients(notification_event_id,display_name,email) SELECT id,'Test','receiver@example.invalid' FROM notification_events").await.unwrap();
+    let (branch, wso, po) = fixture(&pool).await;
+    sqlx::query("UPDATE branches SET name='Branch <East>' WHERE id=$1").bind(branch).execute(&pool).await.unwrap();
+    let receive = |quantity| models::line_item::ReceiveLineItemRequest { quantity };
+    let first = wso.items[0].line_items[0].id;
+    assert!(services::line_item::receive(&pool, &config(), first, receive(3), &actor()).await.is_err());
+    services::line_item::receive(&pool, &config(), first, receive(1), &actor()).await.unwrap();
+    let rows = paid::list(&pool, &Filters::default()).await.unwrap();
+    let row = rows.items.iter().find(|r| r["order_type"] == "wso").unwrap();
+    assert_eq!(row["fulfilled"], 1);
+    assert_eq!(row["outstanding"], 4);
+    assert_eq!(row["status"], "partial");
+    services::line_item::receive(&pool, &config(), first, receive(1), &actor()).await.unwrap();
+    services::line_item::receive(&pool, &config(), wso.items[1].line_items[0].id, receive(3), &actor()).await.unwrap();
+    assert!(services::line_item::receive(&pool, &config(), first, receive(1), &actor()).await.is_err());
+
+    let lines: Vec<_> = po.items.iter().flat_map(|i| &i.line_items).map(|l| json!({"po_line_item_id":l.line_item.id,"qty_delivered":l.line_item.qty_ordered})).collect();
+    services::po_receipt::record_receipt(&pool, &config(), po.id, serde_json::from_value(json!({"lines":lines})).unwrap(), &actor()).await.unwrap();
+    // Snapshot captures the branch at receipt time, even if subsequently renamed.
+    sqlx::query("UPDATE branches SET name='Renamed branch' WHERE id=$1").bind(branch).execute(&pool).await.unwrap();
+    emails::enqueue_occurrences(&pool, &config()).await.unwrap();
+    emails::enqueue_occurrences(&pool, &config()).await.unwrap();
+    for (code, expected) in [("wso_completed", 1_i64), ("product_fully_received", 2), ("po_completed", 1)] {
+        let messages: Vec<(String,String)> = sqlx::query_as("SELECT j.subject,j.html_body FROM notification_jobs j JOIN notification_logs l ON l.id=j.notification_log_id JOIN notification_events e ON e.id=l.notification_event_id WHERE e.code=$1").bind(code).fetch_all(&pool).await.unwrap();
+        assert_eq!(messages.len() as i64, expected, "{code}");
+        for (subject, body) in messages {
+            assert!(subject.starts_with("[Paid order]"));
+            assert!(body.contains("Branch &lt;East&gt;"));
+            assert!(body.contains("Make to measure (MTM)") && body.contains("Stock-out"));
+        }
+    }
+    let complete = paid::list(&pool, &Filters { status: Some("completed".into()), ..Default::default() }).await.unwrap();
+    assert_eq!(complete.total, 2);
+    assert!(complete.items.iter().all(|r| r["outstanding"] == 0));
+    assert_eq!(paid::list(&pool, &Filters::default()).await.unwrap().total, 0);
+    let before: i64 = sqlx::query_scalar("SELECT count(*) FROM notification_jobs").fetch_one(&pool).await.unwrap();
+    pool.execute("UPDATE notification_settings SET enabled=false").await.unwrap();
+    let mut context = models::notification_context::NotificationContext { event_code:"wso_completed".into(), actor_name:"Test".into(),actor_email:"test@example.invalid".into(),variables:Default::default() };
+    context.insert("wso_number", wso.wso_number);
+    services::notifications::dispatch(&pool, &config(), context).await.unwrap();
+    assert_eq!(sqlx::query_scalar::<_, i64>("SELECT count(*) FROM notification_jobs").fetch_one(&pool).await.unwrap(), before);
+}
+
+#[sqlx::test(migrations = "./migrations")]
+#[ignore = "requires disposable PostgreSQL"]
 async fn mixed_items_filters_corrections_and_constraints(pool: PgPool) {
     let (branch, wso, po) = fixture(&pool).await;
     assert!(wso.is_paid_order && po.is_paid_order);

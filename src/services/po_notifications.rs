@@ -32,6 +32,10 @@ pub fn render(
     let reference = data["accounts_reference"].as_str().unwrap_or("—");
     let mut body = format!("<h1>{title}</h1><p>Accounts reference: {}<br>ERP reference: {}<br>Supplier: {}<br>Created by: {}</p>",
         value("accounts_reference"), value("erp_reference"), value("supplier"), value("created_by"));
+    let paid = data["is_paid_order"].as_bool() == Some(true);
+    if paid {
+        body.push_str(&format!("<h2>Paid order</h2><p>Branch: {}</p>", value("branch_name")));
+    }
     if let Some(actor) = data["actor"].as_str() {
         body.push_str(&format!("<p>Action by: {}</p>", escape(actor)));
     }
@@ -59,6 +63,10 @@ pub fn render(
     }
     if let Some(items) = data["items"].as_array() {
         for item in items {
+            if let Some(reason) = item["paid_order_reason"].as_str() {
+                let label = if reason == "mtm" { "Make to measure (MTM)" } else { "Stock-out" };
+                body.push_str(&format!("<p>Item reason: {label}</p>"));
+            }
             if item["branding_required"].as_bool() == Some(true) {
                 body.push_str(&format!(
                     "<p>Branding: {} · Location: {}</p>",
@@ -104,7 +112,7 @@ pub fn render(
     }
     body.push_str(&format!("<p><a href=\"{}\">View purchase order</a></p><p>Quantities reflect the event snapshot. Delivery deadlines use Africa/Nairobi time.</p>",escape(&url)));
     Ok(RenderedEmail {
-        subject: format!("{title}: {}", reference.replace(['\r', '\n'], " ")),
+        subject: format!("{}{title}: {}", if paid { "[Paid order] " } else { "" }, reference.replace(['\r', '\n'], " ")),
         html_body: body,
     })
 }
