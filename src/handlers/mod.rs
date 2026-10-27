@@ -21,4 +21,4 @@ pub mod po_item_note;
 pub mod po_receipt;
 pub mod po_defect;
 pub mod po_dashboard;
-pub mod po_settings;
+pub mod po_settings;pub mod paid_orders;

@@ -5,21 +5,12 @@ use crate::{
     database::DbPool,
     errors::app_error::AppError,
     models::{
-        create_complete_wso::CreateCompleteWsoRequest,
-        create_wso_item::CreateWsoItemRequest,
-        notification_context::NotificationContext,
-        user::User,
-        wso_detail::WsoDetail,
-        wso_item_branding_detail::WsoItemBrandingDetail,
-        wso_item_detail::WsoItemDetail,
+        create_complete_wso::CreateCompleteWsoRequest, create_wso_item::CreateWsoItemRequest,
+        notification_context::NotificationContext, user::User, wso_detail::WsoDetail,
+        wso_item_branding_detail::WsoItemBrandingDetail, wso_item_detail::WsoItemDetail,
     },
     repositories::{
-        branding_location,
-        branding_type,
-        line_item,
-        production_stage,
-        wso,
-        wso_item,
+        branding_location, branding_type, line_item, production_stage, wso, wso_item,
         wso_item_branding,
     },
     services::notifications,
@@ -33,6 +24,13 @@ pub async fn create_complete_wso(
     payload: &CreateCompleteWsoRequest,
     actor: &User,
 ) -> Result<WsoDetail, AppError> {
+    if payload.is_paid_order
+        && (payload.items.is_empty() || payload.items.iter().any(|i| i.line_items.is_empty()))
+    {
+        return Err(AppError::BadRequest(
+            "A paid WSO requires at least one item and a size/quantity line for every item.".into(),
+        ));
+    }
     //-------------------------------------------------
     // Validate every line item
     //-------------------------------------------------
@@ -44,14 +42,28 @@ pub async fn create_complete_wso(
     }
 
     let mut tx = pool.begin().await?;
+    super::paid_orders::actor(&mut tx, &actor.name).await?;
+    for item in &payload.items {
+        super::paid_orders::validate_reason(
+            payload.is_paid_order,
+            item.paid_order_reason.as_deref(),
+        )?;
+    }
 
     //-------------------------------------------------
     // Create WSO
     //-------------------------------------------------
 
-    let created_wso =
-        wso::create_tx(&mut tx, payload).await?;
+    let created_wso = wso::create_tx(&mut tx, payload).await?;
 
+    super::paid_orders::set_header(
+        &mut tx,
+        "wso",
+        created_wso.id,
+        payload.is_paid_order,
+        payload.branch_id,
+    )
+    .await?;
     let mut detail_items = Vec::new();
 
     let mut total_qty_raised = 0;
@@ -62,20 +74,14 @@ pub async fn create_complete_wso(
     // Find initial production stage
     //-------------------------------------------------
 
-    let not_started_stage =
-        production_stage::find_by_code_tx(
-            &mut tx,
-            "NOT_STARTED",
-        )
-        .await?;
+    let not_started_stage = production_stage::find_by_code_tx(&mut tx, "NOT_STARTED").await?;
 
     let not_started_stage = match not_started_stage {
         Some(stage) => stage,
 
         None => {
             return Err(AppError::BadRequest(
-                "Required production stage 'NOT_STARTED' was not found"
-                    .to_string(),
+                "Required production stage 'NOT_STARTED' was not found".to_string(),
             ));
         }
     };
@@ -89,18 +95,14 @@ pub async fn create_complete_wso(
         // Validate branding requirements
         //-------------------------------------------------
 
-        if !production_item.branding_required
-            && !production_item.branding.is_empty()
-        {
+        if !production_item.branding_required && !production_item.branding.is_empty() {
             return Err(AppError::BadRequest(
                 "Branding requirements cannot be provided when branding_required is false."
                     .to_string(),
             ));
         }
 
-        if production_item.branding_required
-            && production_item.branding.is_empty()
-        {
+        if production_item.branding_required && production_item.branding.is_empty() {
             return Err(AppError::BadRequest(
                 "Branding requirements must be provided when branding_required is true."
                     .to_string(),
@@ -112,36 +114,27 @@ pub async fn create_complete_wso(
         //-------------------------------------------------
 
         let item_payload = CreateWsoItemRequest {
+            paid_order_reason: production_item.paid_order_reason.clone(),
             category_id: Some(production_item.category_id),
 
-            description: Some(
-                production_item.description.clone(),
-            ),
+            description: Some(production_item.description.clone()),
 
-            design_code: Some(
-                production_item.design_code.clone(),
-            ),
+            design_code: Some(production_item.design_code.clone()),
 
-            fabric_code: Some(
-                production_item.fabric_code.clone(),
-            ),
+            fabric_code: Some(production_item.fabric_code.clone()),
 
-            branding_required:
-                production_item.branding_required,
+            branding_required: production_item.branding_required,
         };
 
-        let created_item =
-            wso_item::create_with_initial_stage_tx(
-                &mut tx,
-                created_wso.id,
-                &item_payload,
-                Some(not_started_stage.id),
-                Some(&actor.name),
-                Some(
-                    "Initial stage assigned on item creation",
-                ),
-            )
-            .await?;
+        let created_item = wso_item::create_with_initial_stage_tx(
+            &mut tx,
+            created_wso.id,
+            &item_payload,
+            Some(not_started_stage.id),
+            Some(&actor.name),
+            Some("Initial stage assigned on item creation"),
+        )
+        .await?;
 
         //-------------------------------------------------
         // Create size lines
@@ -155,13 +148,7 @@ pub async fn create_complete_wso(
 
         for line in &production_item.line_items {
             let created =
-                line_item::create_tx(
-                    &mut tx,
-                    created_wso.id,
-                    created_item.id,
-                    line,
-                )
-                .await?;
+                line_item::create_tx(&mut tx, created_wso.id, created_item.id, line).await?;
 
             item_qty_raised += created.qty_raised;
             item_qty_received += created.qty_received;
@@ -174,14 +161,12 @@ pub async fn create_complete_wso(
         // Create branding requirements
         //-------------------------------------------------
 
-        let mut branding_details =
-            Vec::<WsoItemBrandingDetail>::new();
+        let mut branding_details = Vec::<WsoItemBrandingDetail>::new();
 
         for branding_request in &production_item.branding {
             if branding_request.quantity <= 0 {
                 return Err(AppError::BadRequest(
-                    "Branding quantity must be greater than zero."
-                        .to_string(),
+                    "Branding quantity must be greater than zero.".to_string(),
                 ));
             }
 
@@ -190,111 +175,84 @@ pub async fn create_complete_wso(
             //-------------------------------------------------
 
             let branding_type =
-                branding_type::find_by_id_tx(
-                    &mut tx,
-                    branding_request.branding_type_id,
-                )
-                .await?;
+                branding_type::find_by_id_tx(&mut tx, branding_request.branding_type_id).await?;
 
-            let branding_type =
-                match branding_type {
-                    Some(value) if value.active => value,
+            let branding_type = match branding_type {
+                Some(value) if value.active => value,
 
-                    Some(_) => {
-                        return Err(AppError::BadRequest(
-                            "The selected branding type is inactive."
-                                .to_string(),
-                        ));
-                    }
+                Some(_) => {
+                    return Err(AppError::BadRequest(
+                        "The selected branding type is inactive.".to_string(),
+                    ));
+                }
 
-                    None => {
-                        return Err(AppError::NotFound);
-                    }
-                };
+                None => {
+                    return Err(AppError::NotFound);
+                }
+            };
 
             //-------------------------------------------------
             // Validate branding location
             //-------------------------------------------------
 
             let branding_location =
-                branding_location::find_by_id_tx(
-                    &mut tx,
-                    branding_request
-                        .branding_location_id,
-                )
-                .await?;
+                branding_location::find_by_id_tx(&mut tx, branding_request.branding_location_id)
+                    .await?;
 
-            let branding_location =
-                match branding_location {
-                    Some(value) if value.active => value,
+            let branding_location = match branding_location {
+                Some(value) if value.active => value,
 
-                    Some(_) => {
-                        return Err(AppError::BadRequest(
-                            "The selected branding location is inactive."
-                                .to_string(),
-                        ));
-                    }
+                Some(_) => {
+                    return Err(AppError::BadRequest(
+                        "The selected branding location is inactive.".to_string(),
+                    ));
+                }
 
-                    None => {
-                        return Err(AppError::NotFound);
-                    }
-                };
+                None => {
+                    return Err(AppError::NotFound);
+                }
+            };
 
             //-------------------------------------------------
             // Create branding record
             //-------------------------------------------------
 
-            let created_branding =
-                wso_item_branding::create_tx(
-                    &mut tx,
-                    created_item.id,
-                    branding_request
-                        .branding_type_id,
-                    branding_request
-                        .branding_location_id,
-                    branding_request.quantity,
-                )
-                .await?;
+            let created_branding = wso_item_branding::create_tx(
+                &mut tx,
+                created_item.id,
+                branding_request.branding_type_id,
+                branding_request.branding_location_id,
+                branding_request.quantity,
+            )
+            .await?;
 
             //-------------------------------------------------
             // Build branding detail for response
             //-------------------------------------------------
 
-            branding_details.push(
-                WsoItemBrandingDetail {
-                    id: created_branding.id,
+            branding_details.push(WsoItemBrandingDetail {
+                id: created_branding.id,
 
-                    wso_item_id:
-                        created_branding.wso_item_id,
+                wso_item_id: created_branding.wso_item_id,
 
-                    branding_type_id:
-                        branding_type.id,
+                branding_type_id: branding_type.id,
 
-                    branding_type_code:
-                        branding_type.code,
+                branding_type_code: branding_type.code,
 
-                    branding_type_name:
-                        branding_type.display_name,
+                branding_type_name: branding_type.display_name,
 
-                    branding_location_id:
-                        branding_location.id,
+                branding_location_id: branding_location.id,
 
-                    branding_location_code:
-                        branding_location.code,
+                branding_location_code: branding_location.code,
 
-                    branding_location_name:
-                        branding_location.display_name,
+                branding_location_name: branding_location.display_name,
 
-                    quantity:
-                        created_branding.quantity,
+                quantity: created_branding.quantity,
 
-                    created_at:
-                        created_branding.created_at,
+                created_at: created_branding.created_at,
 
-                    updated_at:
-                        created_branding.updated_at,
-                },
-            );
+                updated_at: created_branding.updated_at,
+            });
         }
 
         //-------------------------------------------------
@@ -309,65 +267,46 @@ pub async fn create_complete_wso(
         // Build item detail
         //-------------------------------------------------
 
-        detail_items.push(
-            WsoItemDetail {
-                id: created_item.id,
+        detail_items.push(WsoItemDetail {
+            paid_order_reason: created_item.paid_order_reason.clone(),
+            id: created_item.id,
 
-                category_id:
-                    created_item.category_id,
+            category_id: created_item.category_id,
 
-                description:
-                    created_item.description,
+            description: created_item.description,
 
-                design_code:
-                    created_item.design_code,
+            design_code: created_item.design_code,
 
-                fabric_code:
-                    created_item.fabric_code,
+            fabric_code: created_item.fabric_code,
 
-                branding_required:
-                    created_item.branding_required,
+            branding_required: created_item.branding_required,
 
-                branding_completed:
-                    created_item.branding_completed,
+            branding_completed: created_item.branding_completed,
 
-                status:
-                    created_item.status,
+            status: created_item.status,
 
-                current_stage_id:
-                    created_item.current_stage_id,
+            current_stage_id: created_item.current_stage_id,
 
-                current_stage_name:
-                    created_item.current_stage_name,
+            current_stage_name: created_item.current_stage_name,
 
-                current_stage_color:
-                    created_item.current_stage_color,
+            current_stage_color: created_item.current_stage_color,
 
-                current_stage_changed_by:
-                    created_item.current_stage_changed_by,
+            current_stage_changed_by: created_item.current_stage_changed_by,
 
-                current_stage_changed_at:
-                    created_item.current_stage_changed_at,
+            current_stage_changed_at: created_item.current_stage_changed_at,
 
-                current_stage_notes:
-                    created_item.current_stage_notes,
+            current_stage_notes: created_item.current_stage_notes,
 
-                total_qty_raised:
-                    item_qty_raised,
+            total_qty_raised: item_qty_raised,
 
-                total_qty_received:
-                    item_qty_received,
+            total_qty_received: item_qty_received,
 
-                total_balance:
-                    item_balance,
+            total_balance: item_balance,
 
-                line_items:
-                    created_lines,
+            line_items: created_lines,
 
-                branding:
-                    branding_details,
-            },
-        );
+            branding: branding_details,
+        });
     }
 
     //-------------------------------------------------
@@ -382,46 +321,26 @@ pub async fn create_complete_wso(
 
     let mut variables = HashMap::new();
 
-    variables.insert(
-        "wso_number".to_string(),
-        created_wso.wso_number.clone(),
-    );
+    variables.insert("wso_number".to_string(), created_wso.wso_number.clone());
 
-    if let Some(req_number) =
-        &created_wso.req_number
-    {
-        variables.insert(
-            "req_number".to_string(),
-            req_number.clone(),
-        );
+    if let Some(req_number) = &created_wso.req_number {
+        variables.insert("req_number".to_string(), req_number.clone());
     }
 
-    let context =
-        NotificationContext {
-            event_code:
-                "wso_created".to_string(),
+    let context = NotificationContext {
+        event_code: "wso_created".to_string(),
 
-            actor_name:
-                actor.name.clone(),
+        actor_name: actor.name.clone(),
 
-            actor_email:
-                actor.email.clone(),
+        actor_email: actor.email.clone(),
 
-            variables,
-        };
+        variables,
+    };
 
-    if let Err(error) =
-        notifications::dispatch(
-            pool,
-            config,
-            context,
-        )
-        .await
-    {
+    if let Err(error) = notifications::dispatch(pool, config, context).await {
         eprintln!(
             "Failed to dispatch wso_created notification for WSO {}: {}",
-            created_wso.wso_number,
-            error
+            created_wso.wso_number, error
         );
     }
 
@@ -430,28 +349,23 @@ pub async fn create_complete_wso(
     //-------------------------------------------------
 
     Ok(WsoDetail {
+        is_paid_order: payload.is_paid_order,
+        branch_id: payload.branch_id,
         id: created_wso.id,
 
-        date_signed:
-            created_wso.date_signed,
+        date_signed: created_wso.date_signed,
 
-        wso_number:
-            created_wso.wso_number,
+        wso_number: created_wso.wso_number,
 
-        req_number:
-            created_wso.req_number,
+        req_number: created_wso.req_number,
 
-        attachment_name:
-            created_wso.attachment_name,
+        attachment_name: created_wso.attachment_name,
 
-        attachment_path:
-            created_wso.attachment_path,
+        attachment_path: created_wso.attachment_path,
 
-        status:
-            created_wso.status,
+        status: created_wso.status,
 
-        total_items:
-            detail_items.len(),
+        total_items: detail_items.len(),
 
         total_qty_raised,
 
@@ -459,7 +373,6 @@ pub async fn create_complete_wso(
 
         total_balance,
 
-        items:
-            detail_items,
+        items: detail_items,
     })
 }

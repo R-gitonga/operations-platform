@@ -56,6 +56,13 @@ pub async fn create_complete(
     ensure_supplier_selectable(pool, payload.supplier_id).await?;
 
     let mut tx = pool.begin().await?;
+    super::paid_orders::actor(&mut tx, created_by).await?;
+    for item in &payload.items {
+        super::paid_orders::validate_reason(
+            payload.is_paid_order,
+            item.paid_order_reason.as_deref(),
+        )?;
+    }
 
     let order = purchase_order::create_tx(
         &mut tx,
@@ -67,6 +74,14 @@ pub async fn create_complete(
     )
     .await?;
 
+    super::paid_orders::set_header(
+        &mut tx,
+        "po",
+        order.id,
+        payload.is_paid_order,
+        payload.branch_id,
+    )
+    .await?;
     for item_payload in &payload.items {
         po_item::create_with_line_items_tx(&mut tx, order.id, item_payload, created_by).await?;
     }
@@ -112,6 +127,8 @@ pub async fn get_detail(pool: &DbPool, id: i32) -> Result<PurchaseOrderDetail, A
     let receipts = po_receipt::get_receipts_with_lines(pool, id).await?;
 
     Ok(PurchaseOrderDetail {
+        is_paid_order: order.is_paid_order,
+        branch_id: order.branch_id,
         id: order.id,
         erp_reference: order.erp_reference,
         accounts_reference: order.accounts_reference,

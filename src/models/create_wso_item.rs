@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateWsoItemRequest {
+    pub paid_order_reason: Option<String>,
     pub category_id: Option<i32>,
     pub description: Option<String>,
     pub design_code: Option<String>,

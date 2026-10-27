@@ -3,13 +3,13 @@ use sqlx::{query_as, Postgres, Transaction};
 use crate::{
     database::DbPool,
     models::{
-        create_wso_item::CreateWsoItemRequest,
-        wso_item::WsoItem,
+        create_wso_item::CreateWsoItemRequest, wso_item::WsoItem,
         wso_item_by_category::WsoItemByCategory,
     },
 };
 const WSO_ITEM_SELECT: &str = r#"
 SELECT
+    wi.paid_order_reason,
     wi.id,
     wi.wso_order_id,
     wi.category_id,
@@ -104,14 +104,15 @@ pub async fn create_with_initial_stage_tx(
             fabric_code,
             branding_required,
             branding_completed,
-            current_stage_id
+            current_stage_id, paid_order_reason
         )
         VALUES
         (
-            $1,$2,$3,$4,$5,$6,FALSE,$7
+            $1,$2,$3,$4,$5,$6,FALSE,$7,$8
         )
 
         RETURNING
+            paid_order_reason,
             id,
             wso_order_id,
             category_id,
@@ -139,6 +140,7 @@ pub async fn create_with_initial_stage_tx(
     .bind(&payload.fabric_code)
     .bind(payload.branding_required)
     .bind(current_stage_id)
+    .bind(&payload.paid_order_reason)
     .fetch_one(tx.as_mut())
     .await?;
 
@@ -186,6 +188,7 @@ pub async fn update(pool: &DbPool, item: &WsoItem) -> Result<WsoItem, sqlx::Erro
         WHERE id = $9
 
         RETURNING
+            paid_order_reason,
             id,
             wso_order_id,
             category_id,

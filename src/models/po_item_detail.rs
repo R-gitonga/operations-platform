@@ -1,13 +1,11 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use serde::Serialize;
 
-use crate::models::{
-    po_item_note::PoItemNote,
-    po_line_item::PoLineItemDetail,
-};
+use crate::models::{po_item_note::PoItemNote, po_line_item::PoLineItemDetail};
 
 #[derive(Debug, Serialize)]
 pub struct PoItemDetail {
+    pub paid_order_reason: Option<String>,
     pub id: i32,
 
     pub purchase_order_id: i32,

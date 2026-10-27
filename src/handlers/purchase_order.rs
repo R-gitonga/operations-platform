@@ -31,6 +31,7 @@ pub async fn create_purchase_order(
 pub struct ListPurchaseOrderQuery {
     pub search: Option<String>,
     pub status: Option<String>,
+    pub classification: Option<String>,
 }
 
 pub async fn get_purchase_orders(
@@ -38,7 +39,7 @@ pub async fn get_purchase_orders(
     _user: AuthenticatedUser,
     Query(query): Query<ListPurchaseOrderQuery>,
 ) -> Result<Json<Vec<PurchaseOrder>>, AppError> {
-    let orders = if query.search.is_none() && query.status.is_none() {
+    let mut orders = if query.search.is_none() && query.status.is_none() {
         purchase_order::find_all(&state.pool).await?
     } else {
         purchase_order::find_all_filtered(
@@ -49,6 +50,9 @@ pub async fn get_purchase_orders(
         .await?
     };
 
+    if let Some(scope) = query.classification.as_deref() {
+        match scope { "paid" => orders.retain(|o|o.is_paid_order), "bulk" => orders.retain(|o|!o.is_paid_order), "all" => (), _ => return Err(AppError::BadRequest("Invalid classification".into())) }
+    }
     Ok(Json(orders))
 }
 

@@ -16,10 +16,7 @@ fn validate_branding(
     branding_type_id: Option<i32>,
     branding_location_id: Option<i32>,
 ) -> Result<(), AppError> {
-
-    if branding_required
-        && (branding_type_id.is_none() || branding_location_id.is_none())
-    {
+    if branding_required && (branding_type_id.is_none() || branding_location_id.is_none()) {
         return Err(AppError::BadRequest(
             "Branding type and location are required when branding is marked as required."
                 .to_string(),
@@ -32,7 +29,6 @@ fn validate_branding(
 fn validate_line_items(
     line_items: &[crate::models::po_line_item::CreatePoLineItemRequest],
 ) -> Result<(), AppError> {
-
     if line_items.is_empty() {
         return Err(AppError::BadRequest(
             "A PO item must have at least one size/quantity line.".to_string(),
@@ -40,11 +36,8 @@ fn validate_line_items(
     }
 
     for line in line_items {
-
         if line.size.trim().is_empty() {
-            return Err(AppError::BadRequest(
-                "Size cannot be empty.".to_string(),
-            ));
+            return Err(AppError::BadRequest("Size cannot be empty.".to_string()));
         }
 
         if line.qty_ordered <= 0 {
@@ -67,7 +60,6 @@ pub async fn create_with_line_items_tx(
     payload: &CreatePoItemRequest,
     created_by: &str,
 ) -> Result<PoItem, AppError> {
-
     validate_branding(
         payload.branding_required,
         payload.branding_type_id,
@@ -75,10 +67,15 @@ pub async fn create_with_line_items_tx(
     )?;
 
     validate_line_items(&payload.line_items)?;
-
-    let item =
-        po_item::create_tx(tx, purchase_order_id, payload, created_by)
+    let paid: bool =
+        sqlx::query_scalar("SELECT is_paid_order FROM purchase_orders WHERE id=$1 FOR UPDATE")
+            .bind(purchase_order_id)
+            .fetch_one(&mut **tx)
             .await?;
+    super::paid_orders::validate_reason(paid, payload.paid_order_reason.as_deref())?;
+    super::paid_orders::actor(tx, created_by).await?;
+
+    let item = po_item::create_tx(tx, purchase_order_id, payload, created_by).await?;
 
     for line in &payload.line_items {
         po_line_item::create_tx(tx, item.id, line).await?;
@@ -93,7 +90,6 @@ pub async fn add_item(
     payload: &CreatePoItemRequest,
     created_by: &str,
 ) -> Result<PoItemDetail, AppError> {
-
     let order = purchase_order::find_by_id(pool, purchase_order_id)
         .await?
         .ok_or(AppError::NotFound)?;
@@ -102,14 +98,7 @@ pub async fn add_item(
 
     let mut tx = pool.begin().await?;
 
-    let item =
-        create_with_line_items_tx(
-            &mut tx,
-            purchase_order_id,
-            payload,
-            created_by,
-        )
-        .await?;
+    let item = create_with_line_items_tx(&mut tx, purchase_order_id, payload, created_by).await?;
 
     tx.commit().await?;
 
@@ -121,7 +110,6 @@ pub async fn update_item(
     id: i32,
     payload: &UpdatePoItemRequest,
 ) -> Result<PoItem, AppError> {
-
     validate_branding(
         payload.branding_required,
         payload.branding_type_id,
@@ -138,45 +126,36 @@ pub async fn update_item(
 
     po_rules::ensure_can_edit(&order)?;
 
-    Ok(
-        po_item::update(
-            pool,
-            id,
-            payload.category_id,
-            payload.description.as_deref(),
-            payload.expected_delivery_date,
-            payload.branding_required,
-            payload.branding_type_id,
-            payload.branding_location_id,
-        )
-        .await?
+    Ok(po_item::update(
+        pool,
+        id,
+        payload.category_id,
+        payload.description.as_deref(),
+        payload.expected_delivery_date,
+        payload.branding_required,
+        payload.branding_type_id,
+        payload.branding_location_id,
     )
+    .await?)
 }
 
-pub async fn get_item_detail(
-    pool: &DbPool,
-    id: i32,
-) -> Result<PoItemDetail, AppError> {
-
+pub async fn get_item_detail(pool: &DbPool, id: i32) -> Result<PoItemDetail, AppError> {
     let item = po_item::find_by_id(pool, id)
         .await?
         .ok_or(AppError::NotFound)?;
 
-    let line_items =
-        po_line_item_service::get_line_items_detail_for_item(pool, id).await?;
+    let line_items = po_line_item_service::get_line_items_detail_for_item(pool, id).await?;
 
     let notes = po_item_note::find_by_item(pool, id).await?;
 
-    let total_qty_ordered: i32 =
-        line_items.iter().map(|l| l.line_item.qty_ordered).sum();
+    let total_qty_ordered: i32 = line_items.iter().map(|l| l.line_item.qty_ordered).sum();
 
-    let total_qty_delivered: i32 =
-        line_items.iter().map(|l| l.total_delivered).sum();
+    let total_qty_delivered: i32 = line_items.iter().map(|l| l.total_delivered).sum();
 
-    let total_qty_accepted: i32 =
-        line_items.iter().map(|l| l.total_accepted).sum();
+    let total_qty_accepted: i32 = line_items.iter().map(|l| l.total_accepted).sum();
 
     Ok(PoItemDetail {
+        paid_order_reason: item.paid_order_reason,
         id: item.id,
         purchase_order_id: item.purchase_order_id,
         category_id: item.category_id,
@@ -204,7 +183,6 @@ pub async fn get_items_detail_for_purchase_order(
     pool: &DbPool,
     purchase_order_id: i32,
 ) -> Result<Vec<PoItemDetail>, AppError> {
-
     let items = po_item::find_by_purchase_order(pool, purchase_order_id).await?;
 
     let mut details = Vec::with_capacity(items.len());

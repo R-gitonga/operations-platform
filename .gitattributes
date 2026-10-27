@@ -1,0 +1,2 @@
+# SQLx checksums require stable migration bytes on every platform.
+/migrations/*.sql text eol=lf

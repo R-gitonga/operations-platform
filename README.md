@@ -146,7 +146,7 @@ sqlx migrate run
 sqlx migrate info
 ```
 
-The six migrations create 32 application tables, notification reporting views, and seed categories, production stages, notification events/settings, and receiving/procurement defaults. SQLx manages its own `_sqlx_migrations` table. Running `sqlx migrate run` again leaves applied migrations unchanged.
+The seven migrations create 34 application tables, notification reporting views, and seed categories, production stages, notification events/settings, and receiving/procurement defaults. SQLx manages its own `_sqlx_migrations` table. Running `sqlx migrate run` again leaves applied migrations unchanged.
 
 No sample users, suppliers, orders, email recipients, or credentials are seeded. Branding types and locations are configured through the application.
 
@@ -316,6 +316,7 @@ The Vite development proxy is not included in a production frontend build. Confi
 - [Repository pattern](docs/architecture/002_repository_pattern.md)
 - [Error handling](docs/architecture/003_error_handling.md)
 - [PO email notifications: event rules, rollout and diagnostics](docs/po-email-notifications.md)
+- [Paid orders: branches, item reasons and follow-up](docs/paid-orders.md)
 - [Notification module](docs/architecture/notification-module.md)
 
 Some architecture documents describe earlier development phases. Use current Rust routes, models, services, and active migrations as the implementation reference when older documentation differs.

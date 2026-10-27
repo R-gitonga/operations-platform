@@ -43,6 +43,7 @@ pub async fn create_wso(
 pub struct ListWsoQuery {
     pub search: Option<String>,
     pub status: Option<String>,
+    pub classification: Option<String>,
 }
 
 pub async fn get_wsos(
@@ -50,7 +51,7 @@ pub async fn get_wsos(
     _user: AuthenticatedUser,
     Query(query): Query<ListWsoQuery>,
 ) -> Result<Json<Vec<WsoOrder>>, AppError> {
-    let wsos = if query.search.is_none() && query.status.is_none() {
+    let mut wsos = if query.search.is_none() && query.status.is_none() {
         wso::find_all(&state.pool).await?
     } else {
         wso::find_all_filtered(
@@ -61,6 +62,9 @@ pub async fn get_wsos(
         .await?
     };
 
+    if let Some(scope) = query.classification.as_deref() {
+        match scope { "paid" => wsos.retain(|o|o.is_paid_order), "bulk" => wsos.retain(|o|!o.is_paid_order), "all" => (), _ => return Err(AppError::BadRequest("Invalid classification".into())) }
+    }
     Ok(Json(wsos))
 }
 

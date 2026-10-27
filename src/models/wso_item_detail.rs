@@ -3,15 +3,11 @@
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
-use crate::{
-    models::{
-        line_item::WsoLineItem,
-        wso_item_branding_detail::WsoItemBrandingDetail,
-    },
-};
+use crate::models::{line_item::WsoLineItem, wso_item_branding_detail::WsoItemBrandingDetail};
 
 #[derive(Debug, Serialize)]
 pub struct WsoItemDetail {
+    pub paid_order_reason: Option<String>,
     pub id: i32,
 
     pub category_id: Option<i32>,

@@ -1,15 +1,13 @@
-﻿use sqlx::query_as;
+use sqlx::query_as;
 
 use crate::{
-    database::DbPool, 
-    models::{
-        wso::WsoOrder,
-        create_complete_wso::CreateCompleteWsoRequest,
-    },
+    database::DbPool,
+    models::{create_complete_wso::CreateCompleteWsoRequest, wso::WsoOrder},
 };
 
 const WSO_SELECT: &str = r#"
 SELECT
+    is_paid_order, branch_id,
     id,
     date_signed,
     wso_number,
@@ -60,14 +58,10 @@ pub async fn create_tx(
         .await
 }
 
-pub async fn find_all(
-    pool: &DbPool,
-) -> Result<Vec<WsoOrder>, sqlx::Error> {
-    query_as::<_, WsoOrder>(
-        &format!("{} ORDER BY id DESC", WSO_SELECT),
-    )
-    .fetch_all(pool)
-    .await
+pub async fn find_all(pool: &DbPool) -> Result<Vec<WsoOrder>, sqlx::Error> {
+    query_as::<_, WsoOrder>(&format!("{} ORDER BY id DESC", WSO_SELECT))
+        .fetch_all(pool)
+        .await
 }
 
 pub async fn find_all_filtered(
@@ -75,13 +69,10 @@ pub async fn find_all_filtered(
     search: Option<&str>,
     status: Option<&str>,
 ) -> Result<Vec<WsoOrder>, sqlx::Error> {
+    let search_pattern = search.map(|v| format!("%{}%", v));
 
-    let search_pattern =
-        search.map(|v| format!("%{}%", v));
-
-    query_as::<_, WsoOrder>(
-        &format!(
-            r#"
+    query_as::<_, WsoOrder>(&format!(
+        r#"
             {}
 
             WHERE
@@ -94,33 +85,22 @@ pub async fn find_all_filtered(
 
             ORDER BY id DESC
             "#,
-            WSO_SELECT
-        ),
-    )
+        WSO_SELECT
+    ))
     .bind(search_pattern)
     .bind(status)
     .fetch_all(pool)
     .await
 }
 
-pub async fn find_by_id(
-    pool: &DbPool,
-    id: i32,
-) -> Result<WsoOrder, sqlx::Error> {
-
-    query_as::<_, WsoOrder>(
-        &format!("{} WHERE id = $1", WSO_SELECT),
-    )
-    .bind(id)
-    .fetch_one(pool)
-    .await
+pub async fn find_by_id(pool: &DbPool, id: i32) -> Result<WsoOrder, sqlx::Error> {
+    query_as::<_, WsoOrder>(&format!("{} WHERE id = $1", WSO_SELECT))
+        .bind(id)
+        .fetch_one(pool)
+        .await
 }
 
-pub async fn update(
-    pool: &DbPool,
-    wso: &WsoOrder,
-) -> Result<WsoOrder, sqlx::Error> {
-
+pub async fn update(pool: &DbPool, wso: &WsoOrder) -> Result<WsoOrder, sqlx::Error> {
     sqlx::query(
         r#"
         UPDATE wso_orders
@@ -148,11 +128,7 @@ pub async fn update(
     find_by_id(pool, wso.id).await
 }
 
-pub async fn cancel(
-    pool: &DbPool,
-    id: i32,
-) -> Result<WsoOrder, sqlx::Error> {
-
+pub async fn cancel(pool: &DbPool, id: i32) -> Result<WsoOrder, sqlx::Error> {
     sqlx::query(
         r#"
         UPDATE wso_orders
@@ -169,11 +145,7 @@ pub async fn cancel(
     find_by_id(pool, id).await
 }
 
-pub async fn reactivate(
-    pool: &DbPool,
-    id: i32,
-) -> Result<WsoOrder, sqlx::Error> {
-
+pub async fn reactivate(pool: &DbPool, id: i32) -> Result<WsoOrder, sqlx::Error> {
     sqlx::query(
         r#"
         UPDATE wso_orders

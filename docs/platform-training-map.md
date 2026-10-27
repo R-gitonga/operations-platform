@@ -159,3 +159,7 @@ Use designated training records. If demonstrating with email-enabled events, use
 ## Maintenance references
 
 The charts were checked against frontend routes and Settings pages; backend WSO/PO business rules, receiving and defect services; seeded production stages; and the PO email migration and worker. For technical setup see [README](../README.md); for detailed notification policy see [PO email notifications](po-email-notifications.md). Update these charts when those workflows change.
+
+## Paid-order follow-up
+
+Use the [paid-orders guide](paid-orders.md) for branch setup, mixed MTM/stock-out items, classification corrections, and filtered follow-up. Branch belongs to the order; reason belongs to each item. Ordinary lists default to Bulk, while dashboards include both bulk and paid orders.

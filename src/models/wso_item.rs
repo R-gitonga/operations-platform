@@ -4,6 +4,7 @@ use sqlx::FromRow;
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct WsoItem {
+    pub paid_order_reason: Option<String>,
 
     pub id: i32,
 

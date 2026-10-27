@@ -11,6 +11,7 @@ use crate::models::po_line_item::CreatePoLineItemRequest;
 // is a scalar fact about the item, not a collection.
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct PoItem {
+    pub paid_order_reason: Option<String>,
     pub id: i32,
 
     pub purchase_order_id: i32,
@@ -44,6 +45,7 @@ pub struct PoItem {
 // since a po_item with no sizes has nothing to receive against.
 #[derive(Debug, Clone, Deserialize)]
 pub struct CreatePoItemRequest {
+    pub paid_order_reason: Option<String>,
     pub category_id: Option<i32>,
     pub description: Option<String>,
     pub expected_delivery_date: Option<NaiveDate>,

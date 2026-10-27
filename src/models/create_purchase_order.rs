@@ -4,6 +4,9 @@ use crate::models::po_item::CreatePoItemRequest;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreatePurchaseOrderRequest {
+    #[serde(default)]
+    pub is_paid_order: bool,
+    pub branch_id: Option<i32>,
     pub erp_reference: String,
 
     pub accounts_reference: String,

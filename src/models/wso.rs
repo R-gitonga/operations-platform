@@ -14,6 +14,8 @@ pub struct UpdateWsoRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct WsoOrder {
+    pub is_paid_order: bool,
+    pub branch_id: Option<i32>,
 
     pub id: i32,
 

@@ -7,6 +7,7 @@ use crate::{
 
 const PO_ITEM_SELECT: &str = r#"
 SELECT
+    pi.paid_order_reason,
     pi.id,
     pi.purchase_order_id,
     pi.category_id,
@@ -47,11 +48,11 @@ pub async fn create_tx(
             branding_required,
             branding_type_id,
             branding_location_id,
-            created_by
+            created_by, paid_order_reason
         )
         VALUES
         (
-            $1, $2, $3, $4, $5, $6, $7, $8
+            $1, $2, $3, $4, $5, $6, $7, $8, $9
         )
         RETURNING id
         "#,
@@ -64,42 +65,34 @@ pub async fn create_tx(
     .bind(payload.branding_type_id)
     .bind(payload.branding_location_id)
     .bind(created_by)
+    .bind(&payload.paid_order_reason)
     .fetch_one(tx.as_mut())
     .await?;
 
-    query_as::<_, PoItem>(
-        &format!("{} WHERE pi.id = $1", PO_ITEM_SELECT),
-    )
-    .bind(id)
-    .fetch_one(tx.as_mut())
-    .await
+    query_as::<_, PoItem>(&format!("{} WHERE pi.id = $1", PO_ITEM_SELECT))
+        .bind(id)
+        .fetch_one(tx.as_mut())
+        .await
 }
 
 pub async fn find_by_purchase_order(
     pool: &DbPool,
     purchase_order_id: i32,
 ) -> Result<Vec<PoItem>, sqlx::Error> {
-    query_as::<_, PoItem>(
-        &format!(
-            "{} WHERE pi.purchase_order_id = $1 ORDER BY pi.id",
-            PO_ITEM_SELECT
-        ),
-    )
+    query_as::<_, PoItem>(&format!(
+        "{} WHERE pi.purchase_order_id = $1 ORDER BY pi.id",
+        PO_ITEM_SELECT
+    ))
     .bind(purchase_order_id)
     .fetch_all(pool)
     .await
 }
 
-pub async fn find_by_id(
-    pool: &DbPool,
-    id: i32,
-) -> Result<Option<PoItem>, sqlx::Error> {
-    query_as::<_, PoItem>(
-        &format!("{} WHERE pi.id = $1", PO_ITEM_SELECT),
-    )
-    .bind(id)
-    .fetch_optional(pool)
-    .await
+pub async fn find_by_id(pool: &DbPool, id: i32) -> Result<Option<PoItem>, sqlx::Error> {
+    query_as::<_, PoItem>(&format!("{} WHERE pi.id = $1", PO_ITEM_SELECT))
+        .bind(id)
+        .fetch_optional(pool)
+        .await
 }
 
 pub async fn update(
@@ -136,10 +129,8 @@ pub async fn update(
     .execute(pool)
     .await?;
 
-    query_as::<_, PoItem>(
-        &format!("{} WHERE pi.id = $1", PO_ITEM_SELECT),
-    )
-    .bind(id)
-    .fetch_one(pool)
-    .await
+    query_as::<_, PoItem>(&format!("{} WHERE pi.id = $1", PO_ITEM_SELECT))
+        .bind(id)
+        .fetch_one(pool)
+        .await
 }

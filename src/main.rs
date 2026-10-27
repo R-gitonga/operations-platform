@@ -85,7 +85,7 @@ async fn main() {
     });
 
     //creating route
-    let app = Router::new()
+    let app = Router::new().merge(handlers::paid_orders::routes())
         .merge(wso_routes())
         .merge(line_item_routes())
         .merge(category_routes())

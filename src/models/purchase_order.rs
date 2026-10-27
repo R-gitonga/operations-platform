@@ -4,6 +4,8 @@ use sqlx::FromRow;
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct PurchaseOrder {
+    pub is_paid_order: bool,
+    pub branch_id: Option<i32>,
     pub id: i32,
 
     pub erp_reference: String,
@@ -11,7 +13,7 @@ pub struct PurchaseOrder {
     pub accounts_reference: String,
 
     pub supplier_id: i32,
-    
+
     pub supplier_name: String,
 
     pub description: Option<String>,

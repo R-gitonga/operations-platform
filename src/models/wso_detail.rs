@@ -1,11 +1,13 @@
 use serde::Serialize;
 
-use chrono::{NaiveDate};
+use chrono::NaiveDate;
 
 use crate::models::wso_item_detail::WsoItemDetail;
 
 #[derive(Debug, Serialize)]
 pub struct WsoDetail {
+    pub is_paid_order: bool,
+    pub branch_id: Option<i32>,
 
     pub id: i32,
 

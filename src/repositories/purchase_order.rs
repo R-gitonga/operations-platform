@@ -13,6 +13,7 @@ const SUPPLIER_NAME_SUBQUERY: &str =
     "(SELECT name FROM suppliers WHERE id = purchase_orders.supplier_id)";
 
 const PURCHASE_ORDER_SELECT_COLUMNS: &str = r#"
+    is_paid_order, branch_id,
     id,
     erp_reference,
     accounts_reference,

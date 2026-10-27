@@ -9,6 +9,8 @@ use crate::models::{po_item_detail::PoItemDetail, po_receipt::PoReceiptDetail};
 // ('active'/'partial'/'completed'/'cancelled') from services::po_status.
 #[derive(Debug, Serialize)]
 pub struct PurchaseOrderDetail {
+    pub is_paid_order: bool,
+    pub branch_id: Option<i32>,
     pub id: i32,
 
     pub erp_reference: String,

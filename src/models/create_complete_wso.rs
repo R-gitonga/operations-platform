@@ -12,6 +12,7 @@ pub struct CreateBrandingRequirementRequest {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreateProductionItemRequest {
+    pub paid_order_reason: Option<String>,
     pub category_id: i32,
 
     pub description: String,
@@ -29,6 +30,9 @@ pub struct CreateProductionItemRequest {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreateCompleteWsoRequest {
+    #[serde(default)]
+    pub is_paid_order: bool,
+    pub branch_id: Option<i32>,
     pub date_signed: Option<NaiveDate>,
 
     pub wso_number: String,

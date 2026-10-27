@@ -1,7 +1,7 @@
 # Paid orders sprint plan
 
 Date: 2026-10-26
-Status: Proposed implementation plan; application changes have not started.
+Status: Implemented; see paid-orders.md for usage, validation and rollout notes.
 Branches: `feature/paid-orders` in both backend and frontend repositories.
 
 ## Outcome
@@ -12,16 +12,16 @@ Track expedited customer orders separately from bulk work while preserving the e
 
 ## Recommended experience
 
-Add a **Paid order** checkbox to the header of both creation forms. Leave it unchecked by default. When checked, reveal two compact required dropdowns:
+Add a **Paid order** checkbox to the header of both creation forms. Leave it unchecked by default. When checked, reveal a required Branch dropdown at order level. Each item then shows its own required reason dropdown:
 
 - **Branch:** active branches configured in Settings.
-- **Order reason:** Make to measure (MTM), or Stock-out.
+- **Item reason:** Make to measure (MTM), or Stock-out.
 
 Order reason is separate from the existing product category: a shirt can be either an MTM or a stock-out order. Storing both dimensions now enables meaningful reporting later. The two reasons are fixed values in this sprint; branch configuration is editable.
 
-Unchecking clears the conditional fields. If there are no active branches, show a clear configuration message and prevent paid-order submission; ordinary order creation still works. Keep every existing product, size, supplier, branding, attachment, production and receiving step intact. An order may contain several products but belongs to one branch and one reason. Split mixed-branch or mixed-reason work into separate orders for this first version.
+Unchecking clears the conditional fields. If there are no active branches, show a clear configuration message and prevent paid-order submission; ordinary order creation still works. Keep every existing product, size, supplier, branding, attachment, production and receiving step intact. An order may contain several products but belongs to one branch, with a separate reason for each item. Mixed MTM and stock-out items are supported in both WSOs and POs; split only mixed-branch work into separate orders.
 
-After saving a paid order, open its existing detail page, where a Paid order badge, branch, and reason appear. Provide a link back to Paid Orders. Existing detail pages remain the place to manage production, receipts, defects, cancellation and reactivation.
+After saving a paid order, open its existing detail page, where paid classification, branch, and each item reason appear. Provide a link back to Paid Orders. Existing detail pages remain the place to manage production, receipts, defects, cancellation and reactivation.
 
 Add **Paid Orders** to the sidebar. This is one combined follow-up page for POs and WSOs, with an All / WSO / PO filter. Use the existing order reference and a source-type badge to distinguish records.
 
@@ -39,9 +39,10 @@ Add the same header fields to `wso_orders` and `purchase_orders`:
 | --- | --- |
 | `is_paid_order` | Required boolean, default false |
 | `branch_id` | Nullable foreign key to branches |
-| `paid_order_reason` | Nullable constrained value: `mtm` or `stock_out` |
 
-Database constraints require branch and reason when paid, and require both to be null when bulk. Backfill all existing orders as bulk; do not infer classification from descriptions or historical references. Foreign keys prevent orphaned branch assignments. Add indexes based on the combined follow-up query, including branch and creation date for paid orders.
+Add `paid_order_reason` to `wso_items` and `po_items`, constrained to `mtm` or `stock_out`. It is not an order-header field.
+
+Database constraints require a branch on paid headers and a reason on every paid item; bulk headers have no branch and bulk items have no reason. Cross-table validation runs at transaction commit to permit atomic corrections. Backfill all existing orders as bulk; do not infer classification from descriptions or historical references. Foreign keys prevent orphaned branch assignments. Add indexes based on the combined follow-up query, including branch and creation date for paid orders.
 
 Allow authorized users to correct classification, branch and reason from existing order details. Record the old/new metadata, actor and timestamp in a small audit table, including initial paid classification. This preserves correction history for reporting and prevents silent reclassification. Save metadata and its audit event in the same transaction.
 
@@ -57,7 +58,7 @@ Branch rename retains the stable ID/code relationship; this sprint displays the 
 4. Add a paginated, server-filtered `GET /paid-orders` endpoint. Normalize the two order types into one read model without duplicating orders. Use `(order_type, order_id)` as the identity; numeric IDs can overlap across tables.
 5. Reuse existing fulfilment/status rules. Do not sum receipt, item and defect joins in a way that multiplies quantities. Count orders once when category filtering matches several items. Return total matching count and stable ordering before pagination.
 
-Suggested unified row: source type and ID, references, branch ID/code/name, reason, distinct product categories, created date, current status, ordered/raised quantity, received/accepted quantity, outstanding quantity, last relevant operational activity, and detail-page destination. Define the WSO and PO quantity labels explicitly; received and accepted are not interchangeable.
+Suggested unified row: source type and ID, references, branch ID/code/name, reason, distinct product categories, created date, current status, ordered/raised quantity, received/accepted quantity, outstanding quantity, and detail-page destination. Define the WSO and PO quantity labels explicitly; received and accepted are not interchangeable.
 
 Filters: branch (including inactive branches with historical orders), order reason, product category, WSO/PO, status/open versus closed, creation-date range, and reference search. Apply date boundaries using Africa/Nairobi. Use `EXISTS` or equivalent category matching to prevent duplicate orders. An order without a product category remains visible when no category filter is set.
 
@@ -108,6 +109,6 @@ Deploy the backward-compatible backend migration/API before the frontend that se
 - Migrate a disposable database containing existing orders and verify unchanged historical quantities/statuses and bulk defaults. Run backend integration tests against disposable PostgreSQL, frontend type/build checks, and a manual create-to-follow-up walkthrough.
 - Document branch configuration, the meaning of Paid order, correction rules, filter behaviour, and the difference between order reason and product category in the training guide.
 
-## Proposed defaults to review with the team
+## Agreed implementation defaults
 
-The recommended defaults are one branch/reason per order, two fixed reasons, bulk-only ordinary list defaults, all-order dashboard totals, oldest-open-first follow-up, and editable classification with audit history. These are planning recommendations rather than previously implemented behaviour. If a paid order must mix MTM and standard stock-out items, move reason to item level before implementation; do not overload product category to represent it.
+The recommended defaults are one branch per order and one reason per item, two fixed reasons, bulk-only ordinary list defaults, all-order dashboard totals, oldest-open-first follow-up, and editable classification with audit history. These defaults are implemented. Mixed-reason orders are explicitly supported. Reason and category filters must match the same item, list its parent once, and distinguish matching-item quantities from whole-order totals. Do not overload product category to represent reason.
