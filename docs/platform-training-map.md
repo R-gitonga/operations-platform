@@ -1,6 +1,6 @@
 # Operations Platform: team training map
 
-Based on the application source as at 16 October 2026. These charts describe implemented workflows, rather than a proposed future system. Open this Markdown document in a viewer with Mermaid support to display the charts.
+Based on the application source as at 27 October 2026. These charts describe implemented workflows, rather than a proposed future system. Open this Markdown document in a viewer with Mermaid support to display the charts.
 
 ## 1. Start here: the platform at a glance
 
@@ -10,7 +10,10 @@ Workshop Orders (WSOs) track internal production. Purchase Orders (POs) track go
 flowchart TB
     U["Team member signs in"] --> W["Workshop Orders<br/>Internal production"]
     U --> P["Purchase Orders<br/>Supplier procurement"]
-    S["Settings and reference data<br/>Users · suppliers · production stages<br/>Branding · alert rules · recipients"] -.-> W
+    U --> PAID["Paid Orders<br/>Branch follow-up for MTM and stock-out items"]
+    PAID -- "Workshop receipt" --> WR
+    PAID -- "Supplier delivery" --> PR
+    S["Settings and reference data<br/>Users · suppliers · branches · production stages<br/>Branding · alert rules · recipients"] -.-> W
     S -.-> P
     W --> WI["Products and size quantities"]
     WI --> ST["Production stages<br/>and product history"]
@@ -139,6 +142,8 @@ flowchart TB
 | Workshop dashboard / production-stage views | Review work by stage and investigate attention items | Priorities for production and receiving follow-up |
 | Purchase Orders | Raise supplier orders, record deliveries, report/resolve defects, add notes | Procurement history and accepted/outstanding quantities |
 | Purchase Order dashboard | Review fulfilment, overdue goods and recent activity | Supplier follow-up priorities |
+| Paid Orders | Filter by branch, item reason/category and source; open cards or use Receiving | Expedited follow-up using existing WSO/PO receipts |
+| Settings → Branches | Administrators create branches and activate/deactivate them | Branch choices for paid orders; historical assignments remain available |
 | Settings → Production Stages | Maintain available stages and expected durations | Consistent production tracking |
 | Settings → Notification Behaviour / Recipients | Enable events and email; assign recipients per event | Targeted email alerts |
 | Settings → receiving / PO alert thresholds | Configure attention and timed-alert rules | Consistent follow-up criteria |
@@ -146,20 +151,53 @@ flowchart TB
 
 User management, supplier management and branding reference pages are admin-only in the frontend. Teach each person the screens available to their assigned account; a suggested business responsibility is not a separate permission role automatically enforced by the application.
 
-## Suggested 30-minute training session
+## 7. Paid orders: classify, follow up and receive
+
+Paid Orders is a combined follow-up page for paid WSOs and POs. Choose the source according to whether goods are made internally or bought from a supplier. Tick **Paid order**, choose one branch for the whole order, and choose **Make to measure (MTM)** or **Stock-out** separately for each item. A single order can contain MTM trousers and a stock-out fleece. Product category remains separate from the reason.
+
+```mermaid
+flowchart TB
+    SET["Admin configures active branches<br/>Settings → Branches"] --> CREATE["New WSO or New PO<br/>Tick Paid order and select branch"]
+    CREATE --> ITEMS["Choose reason on each item<br/>MTM or Stock-out<br/>Enter normal sizes, quantities and branding"]
+    ITEMS --> SAVE["Save the source order"]
+    SAVE --> PAGE["Paid Orders<br/>Filter by branch, reason, category or source"]
+    PAGE --> CARD["Clickable order card<br/>Matching-item totals and whole-order status"]
+    CARD -- "Open card" --> DETAIL["Existing order details<br/>History, production, defects and classification"]
+    CARD -- "Receiving button" --> PANEL["All source items shown<br/>Page filters do not restrict receiving"]
+    PANEL --> TYPE{"Source order?"}
+    TYPE -- WSO --> W["Receive stock by size<br/>Positive quantity within remaining balance"]
+    TYPE -- PO --> P["Record supplier delivery<br/>Quantities, delivery note and notes"]
+    W --> UPDATE["Existing receipt records update<br/>Paid Orders refreshes"]
+    P --> UPDATE
+    UPDATE --> DONE{"Whole order completed?"}
+    DONE -- No --> PAGE
+    DONE -- Yes --> CLOSED["Leaves default Open view<br/>Find under Completed or All"]
+    UPDATE -. "Existing supported events" .-> EMAIL["Existing WSO/PO notification settings<br/>Paid-order branch and reasons included"]
+```
+
+**Teach the scope:** Receiving means the existing workshop or supplier receipt. There is no separate branch-receipt confirmation. The receiving panel shows the entire order, even if the card only shows items matching an MTM or category filter. Record only what actually arrived; use **View order details and history** for the source record and follow-up actions.
+
+**Read the cards correctly:** Each order appears once. Card quantities cover matching items; status belongs to the whole order. WSO fulfilment is received quantity. PO fulfilment is accepted quantity after defects, so outstanding units can remain even when the supplier delivery limit has been reached. The PO defect limitations in section 3 still apply. Completed/cancelled WSO restrictions and cancelled PO restrictions also apply here.
+
+**Finding work:** The default view is Open, oldest first. Filter by branch, reason, category, WSO/PO, status, reference or creation dates. Dates use Nairobi time. Reason and category must match the same item. Use Refresh for an immediate update; the page also refreshes every minute. Ordinary WSO/PO lists default to Bulk with Paid and All options; dashboards include both. Use the New WSO/New PO buttons to start the appropriate creation form, then tick Paid order.
+
+**Corrections and branches:** Open the source order and choose **Edit classification** to correct paid/bulk status, branch and item reasons together. Cancelled orders must first be reactivated. Changes are audited. Administrators maintain branches under Settings; deactivation prevents new assignments while preserving existing assignments and filter choices.
+
+**Notifications:** Paid orders use the existing WSO/PO event switches and recipients, including applicable completion, product-received, branding-ready and attention alerts. They do not have a separate recipient list or a new email for every partial receipt. Paid-order emails have a `[Paid order]` subject prefix and include the branch and item reasons. Future PO event snapshots preserve that context; already queued messages are unchanged. The branch selection does not automatically select an email recipient. In-app notifications remain deferred.
+
+**Example exercise:** Create a paid WSO for a training branch with 2 MTM trousers and 3 stock-out fleeces. Filter to MTM: the card shows 2 ordered. Click Receiving: both items appear. Receive 1 pair of trousers; the filtered card shows 1 received and 1 outstanding, while the order is partial. Clear the reason filter to see 5 ordered, 1 received and 4 outstanding. Receive the remaining quantities, then find the order under Completed. Repeat with a paid PO using Record Delivery and its delivery-note reference. Review configured notification events using approved training recipients.
+
+## Suggested 40-minute training session
 
 1. **Orient the team (5 minutes):** Walk through chart 1. Ask whether a sample requirement belongs in a WSO or a PO.
 2. **Demonstrate a WSO (8 minutes):** Use chart 2 and the 30-shirt example. Show that stage changes and receiving are separate actions.
 3. **Demonstrate a PO (10 minutes):** Use chart 3 and the 10-shirt defect example. Compare delivered, accepted and outstanding quantities before and after resolution.
-4. **Follow the saved data (4 minutes):** Open histories and dashboards. Use charts 4 and 5 to explain why an email is not the authoritative record.
-5. **Check understanding (3 minutes):** Ask “Does Ready For Dispatch complete a WSO?”, “Does resolving as replaced add a receipt?”, and “Does a supplier contact automatically receive PO emails?” The answer to each is no.
+4. **Demonstrate paid orders (10 minutes):** Use section 7's mixed-reason example. Compare filtered card totals with the full receiving panel, show both receipt entry points, and find a completed order again.
+5. **Follow the saved data (4 minutes):** Open histories and dashboards. Use charts 4 and 5 to explain why an email is not the authoritative record. Show that paid orders use the source module's notification settings.
+6. **Check understanding (3 minutes):** Ask “Does Ready For Dispatch complete a WSO?”, “Does resolving as replaced add a receipt?”, “Does a supplier contact or branch selection automatically choose email recipients?”, and “Does the MTM filter hide other items in the receiving panel?” The answer to each is no.
 
 Use designated training records. If demonstrating with email-enabled events, use approved training recipients because real saved actions can send real emails.
 
 ## Maintenance references
 
-The charts were checked against frontend routes and Settings pages; backend WSO/PO business rules, receiving and defect services; seeded production stages; and the PO email migration and worker. For technical setup see [README](../README.md); for detailed notification policy see [PO email notifications](po-email-notifications.md). Update these charts when those workflows change.
-
-## Paid-order follow-up
-
-Use the [paid-orders guide](paid-orders.md) for branch setup, mixed MTM/stock-out items, classification corrections, and filtered follow-up. Branch belongs to the order; reason belongs to each item. Ordinary lists default to Bulk, while dashboards include both bulk and paid orders.
+The charts were checked against frontend routes and Settings pages; paid-order cards and receiving dialogs; backend WSO/PO business rules, receiving and defect services; seeded production stages; and notification snapshots, dispatch and worker code. For technical setup see [README](../README.md); for detailed notification policy see [PO email notifications](po-email-notifications.md); for paid-order configuration and migration steps see the [paid-orders guide](paid-orders.md). Update these charts when those workflows change.
