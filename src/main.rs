@@ -63,6 +63,13 @@ async fn main() {
 
     println!("Connected to Database");
 
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("Failed to apply database migrations");
+
+    println!("Database migrations are up to date");
+
     let state = AppState { pool, config };
     let worker_pool = state.pool.clone();
     let worker_config = state.config.clone();

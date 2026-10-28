@@ -6,6 +6,12 @@ Operations Platform manages workshop production and external procurement in one 
 
 This repository contains the Rust HTTP API, PostgreSQL migrations, and backend integration tests. The [React frontend](https://github.com/R-gitonga/operations-platform-frontend) is maintained separately.
 
+## Recent changes
+
+- Paid orders are now tracked across WSOs and POs with branch ownership and per-item `MTM` or `Stock-out` reasons. The frontend provides paid-order follow-up, branch filtering, receiving actions, and classification management.
+- The PO email workflow includes durable occurrences, retryable jobs, scheduled sweeps, and paid-order context in notification snapshots.
+- API startup now applies pending SQLx migrations before workers and HTTP routes start. A fresh installation only needs database creation; manual migration execution is optional for inspection or development.
+
 ## Contents
 
 - [Capabilities](#capabilities)
@@ -30,6 +36,7 @@ This repository contains the Rust HTTP API, PostgreSQL migrations, and backend i
 | Receiving | Partial and full WSO receipts, outstanding balances, receipt history, and configurable partial-receiving attention thresholds. |
 | Branding | Configurable branding types and locations, with quantities attached to WSO product requirements. |
 | Procurement | Suppliers, PO products and size lines, delivery receipts, defects and resolutions, item notes, attachments, and procurement timelines. |
+| Paid orders | Branch-linked WSO/PO follow-up, per-item MTM or Stock-out reasons, filtered fulfilment totals, classification controls, and receiving links. |
 | Dashboards | WSO production summaries, recent activity, outstanding quantities, PO fulfilment summaries, and overdue delivery views. |
 | Notifications | Event settings, recipients, email jobs, delivery logs, and WSO attention-notification tracking. |
 
@@ -95,7 +102,7 @@ Event timestamps use PostgreSQL `TIMESTAMPTZ` and Rust `DateTime<Utc>`. Date-onl
 - Rust installed through rustup. `rust-toolchain.toml` currently selects **1.96.1**.
 - Native build tools for your Rust target. On Windows, use the MSVC C++ build tools and Windows SDK. On Linux, the native TLS dependency may require OpenSSL development packages and `pkg-config`.
 - A running PostgreSQL server and a database role with the necessary permissions. The baseline was validated on PostgreSQL **18.6**; other versions have not been validated in this project.
-- SQLx CLI for database creation and migrations.
+- SQLx CLI for database creation and optional migration inspection.
 - SMTP credentials for actual email delivery.
 - For the optional frontend: Node.js matching its Vite requirement (`^20.19.0` or `>=22.12.0`) and npm.
 
@@ -103,12 +110,13 @@ Event timestamps use PostgreSQL `TIMESTAMPTZ` and Rust `DateTime<Utc>`. Date-onl
 
 The commands below use PowerShell and run from the backend repository root unless stated otherwise. On Bash, use `export NAME='value'` instead of `$env:NAME = 'value'`.
 
-### 1. Clone and install the migration CLI
+### 1. Clone and optionally install the SQLx CLI
 
 ```powershell
 git clone https://github.com/R-gitonga/operations-platform.git
 cd operations-platform
 rustup show
+# Only needed to create a database or inspect migrations manually.
 cargo install sqlx-cli --version '~0.8' --locked --no-default-features --features postgres,rustls
 ```
 
@@ -142,11 +150,9 @@ Ensure PostgreSQL is running. The role in `DATABASE_URL` needs `CREATEDB` permis
 
 ```powershell
 sqlx database create
-sqlx migrate run
-sqlx migrate info
 ```
 
-The seven migrations create 34 application tables, notification reporting views, and seed categories, production stages, notification events/settings, and receiving/procurement defaults. SQLx manages its own `_sqlx_migrations` table. Running `sqlx migrate run` again leaves applied migrations unchanged.
+The application applies the seven migrations automatically during startup. They create 34 application tables, notification reporting views, and seed categories, production stages, notification events/settings, and receiving/procurement defaults. SQLx manages its own `_sqlx_migrations` table, and already-applied migrations are skipped safely. Use `sqlx migrate info` only when you want to inspect migration state manually.
 
 No sample users, suppliers, orders, email recipients, or credentials are seeded. Branding types and locations are configured through the application.
 
@@ -159,7 +165,7 @@ cargo check --locked
 cargo run --locked
 ```
 
-The API listens on `0.0.0.0:3000`. The bind address and port are currently defined in `src/main.rs`, rather than environment variables. Startup connects to PostgreSQL but does not apply migrations automatically.
+The API listens on `0.0.0.0:3000`. The bind address and port are currently defined in `src/main.rs`, rather than environment variables. Startup connects to PostgreSQL and applies pending migrations before starting the workers and serving requests.
 
 In a second terminal:
 
@@ -238,6 +244,7 @@ Paths below are backend paths. The frontend development proxy adds `/api` before
 | `/suppliers`, `/purchase-orders`, `/po-items`, `/po-line-items` | Procurement records and product lines. |
 | `/purchase-orders/{id}/receipts`, `/po-line-items/{id}/defects`, `/po-defects/{id}/resolve` | Deliveries and quality handling. |
 | `/purchase-orders/dashboard`, `/po-items/{id}/procurement-timeline`, `/po-settings` | Procurement reporting, history and thresholds. |
+| `/paid-orders`, `/order-classification/{wso|po}/{id}`, `/branches` | Paid-order follow-up, classification and branch choices. |
 | `/settings/notifications` | Notification settings, events and recipients. |
 | `/uploads` | Files served from local attachment storage. |
 

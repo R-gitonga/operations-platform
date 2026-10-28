@@ -38,11 +38,9 @@ The dedicated endpoint is `PUT /order-classification/{wso|po}/{id}`. Send `is_pa
 
 ## Migration and verification
 
-Run from the backend directory before starting the updated application:
+The application applies pending migrations automatically before starting its workers. To inspect the migration state manually, run from the backend directory:
 
 ```powershell
-sqlx migrate info
-sqlx migrate run
 sqlx migrate info
 ```
 
